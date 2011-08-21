@@ -61,9 +61,9 @@
 (define _jbyte    (jtype "B" 'byte    jbyte?    __jbyte    #f            #f))
 (define _jchar    (jtype "C" 'char    jchar?    __jchar    char->integer integer->char))
 (define _jshort   (jtype "S" 'short   jshort?   __jshort   #f            #f))
-(define _jint     (jtype "I" 'int     jint?    __jint     #f            #f))
-(define _jlong    (jtype "J" 'long    jlong?   __jlong    #f            #f))
-(define _jfloat   (jtype "F" 'float   jfloat?  __jfloat   #f            #f))
+(define _jint     (jtype "I" 'int     jint?     __jint     #f            #f))
+(define _jlong    (jtype "J" 'long    jlong?    __jlong    #f            #f))
+(define _jfloat   (jtype "F" 'float   jfloat?   __jfloat   #f            #f))
 (define _jdouble  (jtype "D" 'double  jdouble?  __jdouble  #f            #f))
 (define _jvoid    (jtype "V" 'void    #f        __jvoid    #f            #f))
 ; hack for _jobject and _jlist so that they dual as a jtype and function
