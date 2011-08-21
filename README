@@ -1,0 +1,14 @@
+The goal of this project is facilitate the use of java libraries
+on racket, by making it easier to write manual bindings and 
+by also providing support for automatic binding this feature is
+currently incomplete
+
+the project is currently experimental, its api subject to drastic
+change, lacks documentation, and sufficient unit testing
+
+for examples on how to use the library you can check the tests/
+folder 
+
+Installation:
+make sure to have the JAVA_HOME and ARCH variables set,
+then run "make" in the directory
