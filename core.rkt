@@ -61,28 +61,28 @@
 (define _jbyte    (jtype "B" 'byte    jbyte?    __jbyte    #f            #f))
 (define _jchar    (jtype "C" 'char    jchar?    __jchar    char->integer integer->char))
 (define _jshort   (jtype "S" 'short   jshort?   __jshort   #f            #f))
-(define _jint     (jtype "I" 'int     jlong?    __jint     #f            #f))
-(define _jlong    (jtype "J" 'long    jfloat?   __jlong    #f            #f))
-(define _jfloat   (jtype "F" 'float   jdouble?  __jfloat   #f            #f))
-(define _jdouble  (jtype "D" 'double  jstring?  __jdouble  #f            #f))
+(define _jint     (jtype "I" 'int     jint?    __jint     #f            #f))
+(define _jlong    (jtype "J" 'long    jlong?   __jlong    #f            #f))
+(define _jfloat   (jtype "F" 'float   jfloat?  __jfloat   #f            #f))
+(define _jdouble  (jtype "D" 'double  jdouble?  __jdouble  #f            #f))
 (define _jvoid    (jtype "V" 'void    #f        __jvoid    #f            #f))
 ; hack for _jobject and _jlist so that they dual as a jtype and function
 (define _jobject
   ((λ ()
      (struct _jobject jtype/object ()
        #:property prop:procedure 
-       (λ (self class-name [racket->java #f] [java->racket #f])
+       (λ (self class-name [racket->java #f] [java->racket #f] [predicate #f])
          (let ([class-id (find-class class-name)])
            (struct-copy jtype/object self
              [signature    #:parent jtype (make-class-signature class-name)]
-             [predicate    #:parent jtype (make-jobject-predicate class-id)]
+             [predicate    #:parent jtype (or predicate (make-jobject-predicate class-id))]
              [racket->java #:parent jtype racket->java]
              [java->racket #:parent jtype java->racket]
              [class                 class-id]))))
      (let ([class-id (find-class "Ljava/lang/Object;")])
        (_jobject "Ljava/lang/Object;" 'object (make-jobject-predicate class-id)
                  __jobject #f #f class-id)))))
-(define _jstring  (_jobject "java/lang/String" new-string get-string))
+(define _jstring  (_jobject "java/lang/String" new-string get-string jstring?))
 (define _jlist    
   ((λ ()
      (struct _jlist jtype/vector ()

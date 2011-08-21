@@ -52,7 +52,7 @@
 ;; basic java-type's ctypes
 (define __jobject (_cpointer/null 'jobject _pointer #f (λ (o) (register-finalizer o delete-local-ref) o)))
 (define __jstring  __jobject)
-(define __jboolean _uint8)
+(define __jboolean (make-ctype _uint8 (λ (e) (if e 1 0)) (λ (e) (if (zero? e) #f #t))))
 (define __jbyte    _int8)
 (define __jchar    _ushort)
 (define __jshort   _sint16)

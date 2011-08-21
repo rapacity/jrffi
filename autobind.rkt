@@ -72,9 +72,3 @@
           null))))
 
 (find-class-signature "java.util.Arrays")
-
-
-
-
-
-
