@@ -4,24 +4,26 @@
 
 (define jvector->cpointer jvector-cpointer)
 
+(define (make-jvector-predicate element)
+  (let ([element-tag (jtype-tag element)])
+    (λ (obj) (and (jvector? obj) (eq? element-tag (jtype-tag (jvector-type obj)))))))
+
 (define _jvector
   ((lambda ()
      (struct _jvector jtype/vector ()
        #:property prop:procedure
        (lambda (self element)
-         (define tag (jtype-tag element))
-         (define-values (make-array array-ref array-set!) (tag->array-info tag))
+         (define-values (make-array array-ref array-set!) (tag->array-info (jtype-tag element)))
          (let ([signature (make-vector-signature (jtype-signature element))])
            (struct-copy jtype/vector self
              [signature    #:parent jtype signature]
              [racket->java #:parent jtype jvector-cpointer]
              [java->racket #:parent jtype (lambda (e) (jvector e element))]
-             [predicate    #:parent jtype (λ (o) (and (jvector? o)
-                                                      (eq? tag (jtype-tag (jvector-type o)))))]
+             [predicate    #:parent jtype (make-jvector-predicate element)]
              [class        #:parent jtype/object (find-class signature)]
              [element               element]))))
      (let ([class-id (find-class "[Ljava/lang/Object;")])
-       (_jvector "[Ljava/lang/Object;" 'object (make-jobject-predicate class-id) __jobject 
+       (_jvector "[Ljava/lang/Object;" 'object (make-jvector-predicate _jobject) __jobject 
                  jvector-cpointer
                  (lambda (e) (jvector e _jobject))
                  class-id
