@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -49,8 +50,6 @@ message* create_jvm(JavaVMOption* options, int n_options) {
     args.nOptions = n_options;
     args.ignoreUnrecognized = 0;
     args.version  = JNI_VERSION_1_6;
-    jvm = malloc(sizeof(jvm));
-    env = malloc(sizeof(env));
     // <stderr_redirect>
     int errfd = redirect_stderr();
     container->status = JNI_CreateJavaVM(&jvm, (void**)&env, &args);
@@ -66,6 +65,14 @@ message* create_jvm(JavaVMOption* options, int n_options) {
 
 void delete_local_ref(JNIEnv* env, jobject obj) {
   (*env)->DeleteLocalRef(env, obj);
+}
+
+jobject new_global_ref(JNIEnv* env, jobject obj) {
+  (*env)->NewGlobalRef(env, obj);
+}
+
+jobject delete_global_ref(JNIEnv* env, jobject obj) {
+  (*env)->DeleteGlobalRef(env, obj);
 }
 
 int is_jvm_initialized() {
@@ -114,8 +121,17 @@ jstring new_string(JNIEnv* env, const char* str) {
   return (*env)->NewStringUTF(env, str);
 }
 
-const jbyte* get_string(JNIEnv* env, jstring str) {
+
+const char* get_string(JNIEnv* env, jstring str) {
   return (*env)->GetStringUTFChars(env, str, NULL);
+}
+
+jsize get_string_length(JNIEnv* env, jstring str) {
+  return (*env)->GetStringLength(env, str);
+}
+
+void release_string_chars(JNIEnv* env, jstring str, const char* chars) {
+  (*env)->ReleaseStringUTFChars(env, str, chars);
 }
 
 jobject new_object(JNIEnv* env, jclass class, jmethodID method, ...) {

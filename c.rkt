@@ -35,6 +35,17 @@
        #`(let ([f (cimport name : __jnienv arg-types ... -> return)])
            (lambda (args ...) (f current-jnienv args ...))))]))
 
+; if false then false else make pointer a java global ref, register it with a finalizer, and tag it
+(define (_jpointer/null tag)
+  (make-ctype _pointer #f
+    (λ (obj)
+      (if (not obj) #f
+          (let ([return (new-global-ref obj)])
+            (delete-local-ref obj)
+            (register-finalizer return delete-global-ref)
+            (cpointer-push-tag! return tag)
+            return)))))
+
 (define-cstruct _message
   ([status _int]
    [string _string]))
@@ -48,9 +59,9 @@
 (define __signature _string)
 (define __jnienv    _pointer)
 (define __jsize     _sint32)
-(define __jclass   (_cpointer 'jclass))
-;; basic java-type's ctypes
-(define __jobject (_cpointer/null 'jobject _pointer #f (λ (o) (register-finalizer o delete-local-ref) o)))
+(define __jclass  (_jpointer/null 'jclass))
+; basic java types
+(define __jobject (_jpointer/null 'jobject))
 (define __jstring  __jobject)
 (define __jboolean (make-ctype _uint8 (λ (e) (if e 1 0)) (λ (e) (if (zero? e) #f #t))))
 (define __jbyte    _int8)
@@ -74,28 +85,36 @@
 (define (set-current-jnienv! v)
   (set! current-jnienv v))
 
-
 (cimports
  [attach-current-thread                          : -> __jnienv]
  [create-jvm                                     : (_list i _JavaVMOption) _int -> _message-pointer]
  [jvm-initialized?    = is-jvm-initialized       : -> _bool]
  #:with-env
- [new-object-array                               : __jsize __jclass (_or-null __jobject) -> __jobject]
+ [new-object-array                               : __jsize __jclass __jobject -> __jobject]
  [set-object-array-element                       : __jobject __jsize __jobject -> _void]
  [get-object-array-element                       : __jobject __jsize  -> __jobject]
  [get-array-length                               : _pointer -> __jsize]
  [find-class*           = find-class             : _string -> __jclass]
- [new-string                                     : _string -> __jobject]
  [get-object-class                               : __jobject -> __jclass] 
  [instance-of?          = is-instance-of         : __jobject __jclass -> _bool]
  [get-method-id*        = get-method-id          : __jclass _string _string -> __jmethodID]
  [get-static-method-id* = get-static-method-id   : __jclass _string _string -> __jmethodID]
  [get-field-id*         = get-field-id           : __jclass _string _string -> __jfieldID] 
  [get-static-field-id*  = get-static-field-id    : __jclass _string _string -> __jfieldID]
- [get-string                                     : __jstring -> _string]
  [delete-local-ref                               : _pointer -> _void]
+ [new-global-ref                                 : _pointer -> _pointer]
+ [delete-global-ref                              : _pointer -> _void]
+ [get-string-length                              : _pointer -> __jsize]
+ [new-string                                     : _string  -> __jobject]
+ [get-string*           = get-string             : __jstring -> _pointer]
+ [release-string-chars                           : __jobject _pointer -> _void]
  )
 
+(define (get-string x)
+  (let* ([str (get-string* x)]
+         [return (cast str _pointer _string)])
+    (release-string-chars x str)
+    return))
 
 ; caching of fetch-class class ids
 (define class-ids (make-hash))
