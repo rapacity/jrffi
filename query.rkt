@@ -4,25 +4,28 @@
 (require racket/system)
 (require srfi/13)
 
+(struct constructor-signature (vararg? args) #:transparent)
 (struct method-signature (name static? vararg? args return) #:transparent)
 (struct field-signature (name static? type) #:transparent)
 
-(define (parse-signature name sig static? vararg?)
-  (match sig
-    [(regexp #rx"^\\(([^)]+)\\)(.+)$" (list _ args return))
-     (let ([arg-types (parse-types (open-input-string args))]
-           [return-type (parse-type (open-input-string return))])
-     (method-signature name static? vararg?
-       (if (not vararg?) arg-types
-           (match arg-types [(list head ... tail) `(,@head (vararg ,@(cdr tail)))]))
-       return-type))]
-    [type (field-signature name static?
-           (parse-type (open-input-string type)))]))
 
-(struct jclass-signature (name fields methods) #:transparent)
+(struct jclass-signature (name fields methods constructors) #:transparent)
 
 (define (find-class-signature clss)
-  (define extract-name (match-lambda [(regexp #rx" ([^ ]+?)\\(" (list _ name)) name]))
+  (define (parse-signature name sig static? vararg?)
+    (match sig
+      [(regexp #rx"^\\(([^)]*)\\)(.+)$" (list _ args return))
+       (let* ([arg-types* (parse-types (open-input-string args))]
+              [return-type (parse-type (open-input-string return))]
+              [arg-types (if (not vararg?) arg-types*
+                             (match arg-types* [(list head ... tail) `(,@head (vararg ,@(cdr tail)))]))])
+         (if (string=? clss name)
+             (constructor-signature vararg? arg-types)
+             (method-signature name static? vararg? arg-types return-type)))]
+      [type (field-signature name static?
+              (parse-type (open-input-string type)))]))
+  (define extract-name (match-lambda [(regexp #rx" ([^ ]*)\\(" (list _ name)) name]
+                                     [(regexp #rx" ([^ ]*);" (list _ name)) name]))
   (define vararg? (curry regexp-match? #rx"[.][.][.]"))
   (define static? (curry regexp-match? #rx"^ *[^ ]+ static"))
   (define extract-signature (match-lambda [(regexp #rx" *Signature: (.+) *"(list _ signature)) signature]))
@@ -43,8 +46,12 @@
     (let ([error-string (read-line error-port)])
       (unless (eof-object? error-string)
         (error error-string)))
-    (call-with-values (thunk (partition field-signature? (extract-names/signatures input-port)))
-                      (curry jclass-signature (string-trim clss)))))
+    (let ([signatures (extract-names/signatures input-port)])
+      (jclass-signature
+       (string-trim clss)
+       (filter field-signature? signatures)
+       (filter method-signature? signatures)
+       (filter constructor-signature? signatures)))))
 
 (define (read-until port pred?)
   (define (aux)
@@ -69,7 +76,7 @@
           [(#\V) `(void)]
           [(#\L) (let ([class-name (read-until port (curry char=? #\;))])
                    `(object ,class-name))]
-          [else (error 'parse-type "Unrecognized Type")]))))
+          [else (error 'parse-type (format "Unrecognized Type: ~a" msg))]))))
 
 (define (partition-by proc lst)
   (for/fold ([buckets null]) ([e (in-list lst)])
