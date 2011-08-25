@@ -2,7 +2,7 @@
 
 
 
-(require "core.rkt" "extra.rkt" "misc.rkt" "c.rkt")
+(require "start.rkt" "core.rkt" "extra.rkt" "misc.rkt" "c.rkt")
 
 
 

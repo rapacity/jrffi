@@ -3,5 +3,6 @@ compiled/*
 *.zo
 *.dep
 *.so
+*.o
 .hg
 .hgignore

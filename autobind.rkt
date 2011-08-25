@@ -1,79 +1,75 @@
 #lang racket
 
-(require "core.rkt" (for-syntax syntax/parse racket/function))
-(require racket/system)
-(require srfi/13)
+(require "core.rkt" "misc.rkt" "c.rkt" "jvector.rkt"
+         (for-syntax "query.rkt" racket/syntax syntax/parse racket/match))
 
-(struct method-signature (name static? vararg? args return) #:transparent)
-(struct field-signature (name static? type) #:transparent)
+(begin-for-syntax
+  (define default-autobind-typemap
+    (make-hash
+     `([vector  . ,#`_jvector]
+       [boolean . ,#`_jboolean]
+       [byte    . ,#`_jbyte]
+       [char    . ,#`_jchar]
+       [short   . ,#`_jshort]
+       [int     . ,#`_jint]
+       [long    . ,#`_jlong]
+       [float   . ,#`_jfloat]
+       [double  . ,#`_jdouble]
+       [void    . ,#`_jvoid]
+       [string  . ,#`_jstring]
+       [object  . ,#`_jobject]
+       [vararg  . ,#`_jlist])))
+  
+  (define (type-mapper typemap)
+    (define (ref id) (hash-ref typemap id))
+    (define (map-type token)
+      (match token
+        [(list 'object class-name) 
+         (cond
+           [(string=? class-name "java/lang/String") (ref 'string)]
+           [(string=? class-name "java/lang/Object") (ref 'object)]
+           [else #`(#,(ref 'object) #,class-name)])]
+        [(list-rest 'vector rest) #`(#,(ref 'vector) #,(map-type rest))]
+        [(list-rest 'vararg rest) #`(#,(ref 'vararg) #,(map-type rest))]
+        [(list type) (ref type)]))
+    map-type)
+  
+  (define (construct mapper lst)
+    (for/list ([i (in-list lst)])
+      (match i
+        [(list-rest name (method-signature _ static? vararg? args return) rest)
+         (list* name static? (list vararg? args return)
+                (map (match-lambda [(method-signature _ _ vararg? args return)
+                                    (list vararg? args return)]) rest))])))
+  
+  (define (construct-syntax class-name stx token->type)
+    (define class-name-forward-slash (regexp-replace* #rx"[.]" class-name "/"))
+    (define class-info (find-class-signature class-name))
+    (define class-methods
+      (partition-by method-signature-name (jclass-signature-methods class-info)))
+    (define class-identifier (format-id stx "~a" class-name))
+    #`(begin
+        (define #,class-identifier (#,(format-id stx "find-class") #,class-name-forward-slash))
+        #,@(for/list ([i (in-list class-methods)])
+             (match i
+               [(list-rest method-name (method-signature _ static? vararg? args return) rest)
+                #`(define #,(format-id stx "~a-~a" class-name method-name)
+                    (#,(format-id stx "jmethod/overload/check")
+                     #,class-identifier #,method-name #,static?
+                     (#,vararg? #,(map token->type args) #,(token->type return))
+                     #,@(map (match-lambda [(method-signature _ _ vararg? args return)
+                                            (list vararg? (map token->type args)
+                                                  (token->type return))]) rest)))]))))
+  
+  
+  )
 
-(define (parse-signature name sig static? vararg?)
-  (match sig
-    [(regexp #rx"^\\(([^)]+)\\)(.+)$" (list _ args return))
-     (method-signature name static? vararg?
-      (parse-types (open-input-string args))
-      (parse-type (open-input-string return)))]
-    [type (field-signature name static?
-           (parse-type (open-input-string type)))]))
+
+(define-syntax (jimport stx)
+  (syntax-parse stx
+    [(_ class-name:id)
+     (let ([token->type (type-mapper default-autobind-typemap)])
+       (construct-syntax (symbol->string (syntax-e #'class-name)) #'class-name token->type))]))
 
 
-(struct jclass-signature (name fields methods) #:transparent)
-
-(define (find-class-signature clss)
-  (define extract-name (match-lambda [(regexp #rx" ([^ ]+?)\\(" (list _ name)) name]))
-  (define vararg? (curry regexp-match? #rx"[.][.][.]"))
-  (define static? (curry regexp-match? #rx"^ *[^ ]+ static"))
-  (define extract-signature (match-lambda [(regexp #rx" *Signature: (.+) *"(list _ signature)) signature]))
-  (define (extract-names/signatures port)
-    (let ([lines (filter (negate (curry string=? "")) (drop-right (drop (port->lines port) 2) 1))])
-      (let loop ([lines lines] [output null])
-        (if (null? lines) output
-            (loop (cddr lines) 
-                  (cons (parse-signature 
-                         (extract-name (first lines))
-                         (extract-signature (second lines))
-                         (static? (first lines))
-                         (vararg? (first lines)))
-                        output))))))
-  (let* ([javap (process (string-append "javap -s -public " clss))]
-         [input-port (first javap)]
-         [error-port (fourth javap)])
-    (let ([error-string (read-line error-port)])
-      (unless (eof-object? error-string)
-        (error error-string)))
-    (call-with-values (thunk (partition field-signature? (extract-names/signatures input-port)))
-                      (curry jclass-signature (string-trim clss)))))
-
-(define (read-until port pred?)
-  (define (aux)
-    (let ([char (read-char port)])
-      (if (pred? char) null
-          (cons char (aux)))))
-  (list->string (aux)))
-
-(define (parse-type port)
-  (case (read-char port)
-    ; FIXME should use _jvector not _jlist
-    [(#\[) `(_jlist ,(parse-type port))]
-    [(#\Z) `_jboolean]
-    [(#\B) `_jbyte]
-    [(#\C) `_jchar]
-    [(#\S) `_jshort]
-    [(#\I) `_jint]
-    [(#\J) `_jlong]
-    [(#\F) `_jfloat]
-    [(#\D) `_jdouble]
-    [(#\V) `_jvoid]
-    [(#\L) (let ([class-name (read-until port (curry char=? #\;))])
-             (cond [(string=? class-name "java/lang/String") `_jstring]
-                   [(string=? class-name "java/lang/Object") `_jobject]
-                   [else `(_jobject ,class-name)]))]
-    [else #f]))
-
-(define (parse-types port)
-  (let loop ()
-    (let ([type (parse-type port)])
-      (if type (cons type (loop))
-          null))))
-
-(find-class-signature "java.util.Arrays")
+(provide (all-defined-out))

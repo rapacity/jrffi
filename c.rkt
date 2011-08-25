@@ -60,7 +60,7 @@
 (define __jnienv    _pointer)
 (define __jsize     _sint32)
 (define __jclass  (_jpointer/null 'jclass))
-; basic java types
+; basic java-type's ctypes
 (define __jobject (_jpointer/null 'jobject))
 (define __jstring  __jobject)
 (define __jboolean (make-ctype _uint8 (λ (e) (if e 1 0)) (λ (e) (if (zero? e) #f #t))))
@@ -124,13 +124,13 @@
   (or (hash-ref! class-ids clss (thunk (find-class* clss))) 
       (error (string-append "class not found " clss))))
 
-(define (get-method-id clss sig name #:static? [static? #f])
-  (let ([return ((if static? get-static-method-id* get-method-id*) clss sig name)])
-    (if return return (error "Method not found"))))
+(define (get-method-id clss name sig #:static? [static? #f])
+  (let ([return ((if static? get-static-method-id* get-method-id*) clss name sig)])
+    (if return return (error (format "Method not found ~a: ~a" name sig)))))
 
-(define (get-field-id clss sig name #:static? [static? #f])
-  (let ([return ((if static? get-static-field-id* get-field-id*) clss sig name)])
-    (if return return (error "Field not found"))))
+(define (get-field-id clss name sig #:static? [static? #f])
+  (let ([return ((if static? get-static-field-id* get-field-id*) clss name sig)])
+    (if return return (error (format "Field not found ~a: ~a" name sig)))))
 
 
 (begin-for-syntax

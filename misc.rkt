@@ -1,6 +1,6 @@
-#lang racket/base
+#lang racket
 
-(require "core.rkt")
+(require "core.rkt" (for-syntax syntax/parse racket/syntax srfi/26/cut) "private/stx.rkt")
 
 ; <convenience macros>
 ; interfacing with standard java methods
@@ -24,5 +24,31 @@
     [(_ class-id field-name type)
      (make-jparameter class-id (symbol->string 'field-name) type #:static? #f)]))
 
+(define-syntax (jmethod/overload/check stx)
+  (syntax-parse stx
+    [(_ clss-id mthd-name static? (vararg? (arg-type ...) return) ...)
+     (with-syntax* ([((pred? ...) ...) #'(((jtype-predicate arg-type) ...) ...)]
+                    [((evaluated-pred? ...) ...) (generate-temporaries* #'((pred? ...) ...))]
+                    [(method-id ...) (generate-temporaries #`(return ...))]
+                    [(ffi-func ...)  (generate-temporaries #`(return ...))]
+                    [(matcher ...)   (map (compose (cut if <> #`list-rest #`list) syntax-e)
+                                          (syntax-e #`(vararg? ...)))]
+                    [((arg ...) ...) (generate-temporaries* #`((arg-type ...) ...))])
+       #`(values
+          (let ([class-id clss-id]
+                [method-name mthd-name])
+            (let-values ([(evaluated-pred? ...) (values pred? ...)] ...
+                         [(method-id ffi-func )
+                          (get-jmethod/id+ffi-func class-id method-name 
+                            (list arg-type ...) return #:static? static?)] ...)
+             (match-lambda*
+               [(matcher #,@(maybe-not-syntax #'static? #'o) (? evaluated-pred? arg) ...)
+                (ffi-func current-jnienv  #,@(maybe-not-syntax #'static? #'(o) #'(class-id)) 
+                          method-id arg ...)] ...
+               [else (error 'name "No matching type signature for provided arguments")])))))]))
 
-(provide jmethod jconstructor jparameter)
+
+(provide jmethod jconstructor jparameter jmethod/overload/check)
+
+
+

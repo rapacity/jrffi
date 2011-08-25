@@ -82,7 +82,7 @@
      (let ([class-id (find-class "Ljava/lang/Object;")])
        (_jobject "Ljava/lang/Object;" 'object (make-jobject-predicate class-id)
                  __jobject #f #f class-id)))))
-(define _jstring  (_jobject "java/lang/String" new-string get-string jstring?))
+(define _jstring (_jobject "java/lang/String" new-string get-string jstring?))
 (define _jlist    
   ((λ ()
      (struct _jlist jtype/vector ()
@@ -199,6 +199,15 @@
                                   (jtype->ctype return)))])
     (proc type current-jnienv class-id method-id ffi-func)))
 
+(define (get-jmethod/id+ffi-func class-id method-name args return #:static? [static? #f])
+  (let* ([signature (make-signature args return)]
+         [method-id (get-method-id class-id method-name signature #:static? static?)]
+         [ffi-func  (get-jrffi-obj 
+                     (format "call-~a~a-method" (if static? "static-" "") (jtype-tag return))       
+                     (_cprocedure (append (list __jnienv (if static? __jclass __jobject)
+                                                __jmethodID) (map jtype->ctype args))
+                                  (jtype->ctype return)))])
+    (values method-id ffi-func)))
 
 ; --- interfacing with java fields ---
 (define (get-jaccessor class-id field-name type #:static? [static? #f])
@@ -240,7 +249,7 @@
 ;(provide instance-of? (rename-out [find-class find-class]) get-method-id get-field-id)
 
 
-(provide (all-defined-out)  : -> current-jnienv)
+(provide (all-defined-out) get-jmethod/id+ffi-func  : -> current-jnienv)
 
 
 
