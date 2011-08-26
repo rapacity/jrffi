@@ -11,5 +11,9 @@
 (jvector-set! x 0 #f)
 (jvector-set! x 1 #t)
 
-(test-equal? "jimport" "[false, true]" (java.util.Arrays-toString x))
+(test-equal? "jimport method" "[false, true]" (java.util.Arrays-toString x))
 
+(jimport java.lang.Integer)
+
+
+(test-equal? "jimport constructor/method" "444" (java.lang.Integer-toString (new-java.lang.Integer "444")))

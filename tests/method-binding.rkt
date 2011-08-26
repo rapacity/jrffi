@@ -31,5 +31,7 @@
 
 (define integerToString (jmethod java.lang.Integer toString : -> _jstring))
 
+
 (test-equal? "jmethod single-argument"
              "35" (integerToString (new-integer 35)))
+

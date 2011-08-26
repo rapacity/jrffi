@@ -4,7 +4,7 @@
 (require racket/system)
 (require srfi/13)
 
-(struct constructor-signature (vararg? args) #:transparent)
+(struct constructor-signature (vararg? args return) #:transparent)
 (struct method-signature (name static? vararg? args return) #:transparent)
 (struct field-signature (name static? type) #:transparent)
 
@@ -20,7 +20,7 @@
               [arg-types (if (not vararg?) arg-types*
                              (match arg-types* [(list head ... tail) `(,@head (vararg ,@(cdr tail)))]))])
          (if (string=? clss name)
-             (constructor-signature vararg? arg-types)
+             (constructor-signature vararg? arg-types return-type)
              (method-signature name static? vararg? arg-types return-type)))]
       [type (field-signature name static?
               (parse-type (open-input-string type)))]))

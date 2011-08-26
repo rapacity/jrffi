@@ -185,6 +185,14 @@
                                    __jobject))])
     (proc 'constructor current-jnienv class-id method-id ffi-func)))
 
+(define (get-jconstructor/id+ffi-func class-id args return)
+  (let* ([signature (make-signature args return)]
+         [method-id (get-method-id class-id "<init>" signature)]
+         [ffi-func  (get-jrffi-obj "new-object"
+                      (_cprocedure (list* __jnienv __jclass __jmethodID (map jtype->ctype args))
+                                   __jobject))])
+    (values method-id ffi-func)))
+
 (define (get-jmethod class-id method-name type #:static? [static? #f])
   (let* ([args      (jprocedure-args type)]
          [return    (jprocedure-return type)]
