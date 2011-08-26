@@ -46,7 +46,7 @@
         (define #,class-identifier (#,(format-id stx "find-class") #,class-name-forward-slash))
         #,@(if (null? class-constructors) #`()
                #`((define #,(format-id stx "new-~a" class-name)
-                    (#,(format-id stx "jconstructor/overload/check") #,class-identifier 
+                    (jconstructor/overload/check #,class-identifier 
                      #,@(map (match-lambda [(constructor-signature vararg? args return)
                                             (list vararg? (map token->type args)
                                                   (token->type return))]) class-constructors)))))
@@ -54,15 +54,25 @@
              (match i
                [(list-rest method-name methods)
                 #`(define #,(format-id stx "~a-~a" class-name method-name)
-                    (#,(format-id stx "jmethod/overload/check")
+                    (jmethod/overload/check
                      #,class-identifier #,method-name 
                      #,@(map (match-lambda [(method-signature _ _ static? _ vararg? args return)
                                             (list static? vararg? (map token->type args)
                                                   (token->type return))]) methods)))]))
-       ; #,@(for/list ([i (in-list class-fields)]))
-        
-        
-        )))
+        #,@(for/list ([i (in-list class-fields)])
+             (match i
+               [(field-signature field-name final? static? type)
+                #`(define #,(format-id stx "get-~a-~a" class-name field-name)
+                    (get-jaccessor #,class-identifier #,field-name #,(token->type type)
+                                   #:static? #,static?))]))
+        #,@(for/fold ([output null]) ([i (in-list class-fields)])
+             (match i
+               [(field-signature field-name final? static? type)
+                (if final? output
+                    (cons #`(define #,(format-id stx "~set-~a-~a!" class-name field-name)
+                              (get-jmutator #,class-identifier #,field-name #,(token->type type)
+                                            #:static? #,static?))
+                          output))])))))
   
   
 

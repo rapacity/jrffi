@@ -16,3 +16,5 @@
 
 
 (test-equal? "jimport constructor/method" "444" (java.lang.Integer-toString (new-java.lang.Integer "444")))
+
+(test-equal? "jimport field-accessor" 2147483647 (get-java.lang.Integer-MAX_VALUE))

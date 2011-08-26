@@ -219,20 +219,23 @@
 
 ; --- interfacing with java fields ---
 (define (get-jaccessor class-id field-name type #:static? [static? #f])
-  (let* ([signature (jtype-signature class-id field-name (jtype-signature type))]
+  (let* ([signature (jtype-signature type)]
          [field-id  (get-field-id class-id field-name signature #:static? static?)]
+         [ctype     (jtype-ctype type)]
          [ffi-func  (get-jrffi-obj
                      (format "get-~a~a-field" (if static? "static-" "") (jtype-tag type))
-                     (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID) type))])
+                     (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID) ctype))])
     (if static? (λ () (ffi-func current-jnienv class-id field-id))
         (λ (obj) (ffi-func current-jnienv obj field-id)))))
 
 (define (get-jmutator class-id field-name type #:static? [static? #f])
-  (let* ([signature (jtype-signature class-id field-name (jtype-signature type))]
+  (let* ([signature (jtype-signature type)]
          [field-id  (get-field-id class-id field-name signature #:static? static?)]
+         [ctype     (jtype-ctype type)]
          [ffi-func (get-jrffi-obj 
                     (format "set-~a~a-field" (if static? "static-" "") (jtype-tag type))
-                    (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID type) type))])
+                    (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID ctype) 
+                                 ctype))])
     (if static? (λ (new-value) (ffi-func current-jnienv class-id field-id new-value))
         (λ (obj new-value) (ffi-func current-jnienv obj field-id new-value)))))
 

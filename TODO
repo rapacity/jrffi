@@ -1,6 +1,4 @@
 defining java classes
-jimport field support
-jimport constructor/instance support
 exception handling
 refactor messy parts of the code
 enum support
