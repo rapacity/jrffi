@@ -1,9 +1,8 @@
 #lang racket
 
-(require rackunit "../main.rkt" "../autobind.rkt" "../jvector.rkt")
+(require rackunit "../main.rkt" "../auto.rkt" "../jvector.rkt")
 
 
-; autobinder line
 (jimport java.util.Arrays)
 
 

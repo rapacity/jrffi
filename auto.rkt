@@ -40,24 +40,29 @@
     (define class-methods
       (partition-by method-signature-name (jclass-signature-methods class-info)))
     (define class-constructors (jclass-signature-constructors class-info))
+    (define class-fields       (jclass-signature-fields class-info))
     (define class-identifier (format-id stx "~a" class-name))
     #`(begin
         (define #,class-identifier (#,(format-id stx "find-class") #,class-name-forward-slash))
+        #,@(if (null? class-constructors) #`()
+               #`((define #,(format-id stx "new-~a" class-name)
+                    (#,(format-id stx "jconstructor/overload/check") #,class-identifier 
+                     #,@(map (match-lambda [(constructor-signature vararg? args return)
+                                            (list vararg? (map token->type args)
+                                                  (token->type return))]) class-constructors)))))
         #,@(for/list ([i (in-list class-methods)])
              (match i
                [(list-rest method-name methods)
                 #`(define #,(format-id stx "~a-~a" class-name method-name)
                     (#,(format-id stx "jmethod/overload/check")
                      #,class-identifier #,method-name 
-                     #,@(map (match-lambda [(method-signature _ static? vararg? args return)
+                     #,@(map (match-lambda [(method-signature _ _ static? _ vararg? args return)
                                             (list static? vararg? (map token->type args)
                                                   (token->type return))]) methods)))]))
-        #,@(if (null? class-constructors) #`()
-               #`((define #,(format-id stx "new-~a" class-name)
-                    (#,(format-id stx "jconstructor/overload/check") #,class-identifier 
-                     #,@(map (match-lambda [(constructor-signature vararg? args return)
-                                            (list vararg? (map token->type args)
-                                                  (token->type return))]) class-constructors))))))))
+       ; #,@(for/list ([i (in-list class-fields)]))
+        
+        
+        )))
   
   
 

@@ -5,29 +5,38 @@
 (require srfi/13)
 
 (struct constructor-signature (vararg? args return) #:transparent)
-(struct method-signature (name static? vararg? args return) #:transparent)
-(struct field-signature (name static? type) #:transparent)
+(struct method-signature (name abstract? static? final? vararg? args return) #:transparent)
+(struct field-signature (name static? final? type) #:transparent)
 
 
 (struct jclass-signature (name fields methods constructors) #:transparent)
 
+;#;(match ""
+;  [(list (regexp #rx"public( static)?( final)?(?:[^ ]+) ([^(]+)\\((?![.]{3})*([.]{3})?[^)]*\\)"))])
+;^ *(public|protected)( abstract)?( static)?( final)?
+
 (define (find-class-signature clss)
-  (define (parse-signature name sig static? vararg?)
-    (match sig
-      [(regexp #rx"^\\(([^)]*)\\)(.+)$" (list _ args return))
+  (define (parse-signature name sig properties vararg?)
+    (match (list sig properties)
+      [(list (regexp #rx"^\\(([^)]*)\\)(.+)$" (list _ args return))
+             (list public/protected abstract? static? final?))
        (let* ([arg-types* (parse-types (open-input-string args))]
               [return-type (parse-type (open-input-string return))]
               [arg-types (if (not vararg?) arg-types*
                              (match arg-types* [(list head ... tail) `(,@head (vararg ,@(cdr tail)))]))])
          (if (string=? clss name)
              (constructor-signature vararg? arg-types return-type)
-             (method-signature name static? vararg? arg-types return-type)))]
-      [type (field-signature name static?
-              (parse-type (open-input-string type)))]))
+             (method-signature name abstract? static? final? vararg? arg-types return-type)))]
+      [(list type (list public/protected abstract? static? final?))
+       (field-signature name final? static? (parse-type (open-input-string type)))]))
   (define extract-name (match-lambda [(regexp #rx" ([^ ]*)\\(" (list _ name)) name]
                                      [(regexp #rx" ([^ ]*);" (list _ name)) name]))
   (define vararg? (curry regexp-match? #rx"[.][.][.]"))
-  (define static? (curry regexp-match? #rx"^ *[^ ]+ static"))
+  (define extract-properties
+    (match-lambda
+      [(regexp #rx"^ *(public|protected)( abstract)?( static)?( final)?"
+               (list _ public/protected abstract? static? final?))
+       (list public/protected (and abstract? #t) (and static? #t) (and final? #t))]))
   (define extract-signature (match-lambda [(regexp #rx" *Signature: (.+) *"(list _ signature)) signature]))
   (define (extract-names/signatures port)
     (let ([lines (filter (negate (curry string=? "")) (drop-right (drop (port->lines port) 2) 1))])
@@ -37,10 +46,10 @@
                   (cons (parse-signature 
                          (extract-name (first lines))
                          (extract-signature (second lines))
-                         (static? (first lines))
+                         (extract-properties (first lines))
                          (vararg? (first lines)))
                         output))))))
-  (let* ([javap (process (string-append "javap -s -public " clss))]
+  (let* ([javap (process (string-append "javap -s -protected " clss))]
          [input-port (first javap)]
          [error-port (fourth javap)])
     (let ([error-string (read-line error-port)])
