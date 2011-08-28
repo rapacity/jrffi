@@ -22,7 +22,7 @@
    (format "-L~a" (build-path java-home "jre" "lib" arch))
    (format "-L~a" (build-path java-home "jre" "lib" arch "server"))))
   
-(current-extension-compiler-flags (list* "-fPIC" "-shared" "-O2" libs))
+(current-extension-compiler-flags (list* "-fPIC" "-shared" "-O3" libs))
  
 (define (pre-installer top home)
   (compile-extension #f "jrffi.c" "jrffi.so" includes))
