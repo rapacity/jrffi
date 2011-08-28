@@ -1,6 +1,6 @@
 #lang racket
 
-(require rackunit "../main.rkt" "../auto.rkt" "../jvector.rkt")
+(require rackunit "../main.rkt" "../auto.rkt")
 
 
 (jimport java.util.Arrays)

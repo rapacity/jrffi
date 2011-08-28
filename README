@@ -11,4 +11,4 @@ folder
 
 Installation:
 make sure to have the JAVA_HOME and ARCH variables set,
-then run "make" in the directory
+place in collects folder, then run "raco setup"
