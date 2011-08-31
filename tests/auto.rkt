@@ -26,6 +26,10 @@
 
 (test-equal? "jrequire constructor/method #:import #:racketify" "100"
              (integer->string (make-integer 100)))
+
+(test-equal? "jrequire static method #:import #:racketify" "666"
+             (integer->string 666))
+
 (test-equal? "jrequire field-accessor #:import #:racketify" 2147483647
              (get-integer-max-value))
 (test-true "jrequire predicate? #:import #:racketify"
