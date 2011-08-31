@@ -6,3 +6,7 @@ compiled/*
 *.o
 .hg
 .hgignore
+scribblings/*.js
+scribblings/*.html
+scribblings/*.css
+doc/*
