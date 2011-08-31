@@ -1,14 +1,25 @@
 The goal of this project is facilitate the use of java libraries
 on racket, by making it easier to write manual bindings and 
-by also providing support for automatic binding this feature is
-currently incomplete
+by also providing support for automatic binding
 
-the project is currently experimental, its api subject to drastic
-change, lacks documentation, and sufficient unit testing
+the project is currently experimental, its api is inconsistent,
+and subject to drastic change, lacks complete documentation,
+and sufficient unit testing
 
-for examples on how to use the library you can check the tests/
+some documentation may be found in the scribblings folder
+for more examples on how to use the library you can check the tests/
 folder 
 
 Installation:
 make sure to have the JAVA_HOME and ARCH variables set,
-place in collects folder, then run "raco setup"
+place in collects folder, then run "raco setup jrffi"
+
+Troubleshooting:
+if you get one of the error messages below 
+(libjava.so: cannot open shared object file: No such file or directory)
+(libjvm.so: cannot open shared object file: No such file or directory)
+you'll have to either set the jre path in the LD_LIBRARY_PATH environment variable
+or hard define it in your ld.conf.d directory
+
+export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64:$JAVA_HOME/jre/lib/amd64/server
+
