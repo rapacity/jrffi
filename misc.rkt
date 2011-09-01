@@ -1,6 +1,6 @@
 #lang racket
 
-(require "core.rkt" (for-syntax syntax/parse racket/syntax srfi/26/cut) "private/stx.rkt")
+(require "core.rkt" "c.rkt" (for-syntax syntax/parse racket/syntax srfi/26/cut) "private/stx.rkt")
 
 ; <convenience macros>
 ; interfacing with standard java methods
@@ -28,29 +28,30 @@
 (define-syntax (jmethod/overload/check stx)
   (syntax-parse stx
     [(_ class-id:id method-name:str methods ...)
-     (let-values ([(lets matches)
-                   (for/fold ([lets null] [matches null]) ([method (in-list (syntax-e #`(methods ...)))])
-                     (syntax-parse method
-                       [(static? vararg? (arg-type ...) return-type)
-                        (with-syntax* ([(pred? ...)    #`((jtype-predicate arg-type) ...)]
-                                       [(pred?-id ...) (generate-temporaries #`(arg-type ...))]
-                                       [(arg ...)      (generate-temporaries #`(arg-type ...))]
-                                       [(method-id)    (generate-temporaries #`(method-id))]
-                                       [(ffi-func)     (generate-temporaries #`(ffi-func))]
-                                       [matcher        (if (syntax-e #`vararg?) #`list-rest #`list)])
-                          (values
-                           (list* #`[(pred?-id ...) (values pred? ...)]
-                                  #`[(method-id ffi-func)
-                                     (get-jmethod/id+ffi-func class-id method-name
-                                       (list arg-type ...) return-type #:static? static?)]
-                                 lets)
-                           (list* (if (syntax-e #'static?)
-                                      #`[(matcher (? pred?-id arg) ...)
-                                         (ffi-func current-jnienv class-id method-id arg ...)]
-                                      #`[(matcher o (? pred?-id arg) ...)
-                                         (ffi-func current-jnienv o method-id arg ...)])
-                                  matches)))]))])
-       #`(let-values (#,@lets)
+     (let*-values ([(object-pred?-id) (generate-temporary)]
+                   [(lets matches)
+                    (for/fold ([lets null] [matches null]) ([method (in-list (syntax-e #`(methods ...)))])
+                      (syntax-parse method
+                        [(static? vararg? (arg-type ...) return-type)
+                         (with-syntax* ([(pred? ...)    #`((jtype-predicate arg-type) ...)]
+                                        [(pred?-id ...) (generate-temporaries #`(arg-type ...))]
+                                        [(arg ...)      (generate-temporaries #`(arg-type ...))]
+                                        [(method-id)    (generate-temporaries #`(method-id))]
+                                        [(ffi-func)     (generate-temporaries #`(ffi-func))]
+                                        [matcher        (if (syntax-e #`vararg?) #`list-rest #`list)])
+                           (values
+                            (list* #`[(pred?-id ...) (values pred? ...)]
+                                   #`[(method-id ffi-func)
+                                      (get-jmethod/id+ffi-func class-id method-name
+                                        (list arg-type ...) return-type #:static? static?)]
+                                   lets)
+                            (list* (if (syntax-e #'static?)
+                                       #`[(matcher (? pred?-id arg) ...)
+                                          (ffi-func current-jnienv class-id method-id arg ...)]
+                                       #`[(matcher (? object-pred?-id o) (? pred?-id arg) ...)
+                                          (ffi-func current-jnienv o method-id arg ...)])
+                                   matches)))]))])
+       #`(let-values ([(object-pred?-id) (lambda (o) (instance-of? o class-id))] #,@lets)
            (match-lambda*
              #,@(reverse matches)
              [else (error 'method-name "No matching type signature for provided arguments")])))]))
