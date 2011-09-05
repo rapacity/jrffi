@@ -1,13 +1,6 @@
 #include <jni.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-
-typedef struct {
-  int status;
-  char* string;
-} message;
 
 /*
    unsigned short dispatch_max;
@@ -18,48 +11,14 @@ typedef struct {
 
 JavaVM* jvm;
 
-int pipe_pair[2];
-int stderr_backup;
-
-int redirect_stderr() {
-  stderr_backup = dup(STDERR_FILENO);
-  if (pipe(pipe_pair) != 0) {
-    return -1;
-  }
-  dup2(pipe_pair[1], STDERR_FILENO);
-  close (pipe_pair[1]);
-  return pipe_pair[0];
-}
-
-void restore_stderr() {
-  dup2(stderr_backup, STDERR_FILENO);
-  close(pipe_pair[0]);
-  pipe_pair[0] = -1;
-}
-
-message* create_jvm(JavaVMOption* options, int n_options) {
-  message* container = malloc(sizeof(container)); 
-  container->string = malloc(sizeof(container->string) * 100);
-  container->string[0] = '\0';
-  container->status = 0;
-  if (jvm == NULL) {
-    JNIEnv* env;
-    JavaVMInitArgs args;
-    args.options  = options;
-    args.nOptions = n_options;
-    args.ignoreUnrecognized = 0;
-    args.version  = JNI_VERSION_1_6;
-    // <stderr_redirect>
-    int errfd = redirect_stderr();
-    container->status = JNI_CreateJavaVM(&jvm, (void**)&env, &args);
-    if (container->status != 0) { 
-      read(errfd, container->string, sizeof(container->string) * 99);
-      container->string[99] = '\0';
-    }
-    restore_stderr();
-    // </stderr_redirect> 
-  }
-  return container;
+int create_jvm(JavaVMOption* options, int n_options) {
+  JNIEnv* env;
+  JavaVMInitArgs args;
+  args.options  = options;
+  args.nOptions = n_options;
+  args.ignoreUnrecognized = 0;
+  args.version  = JNI_VERSION_1_6;
+  return JNI_CreateJavaVM(&jvm, (void**)&env, &args);
 }
 
 void delete_local_ref(JNIEnv* env, jobject obj) {

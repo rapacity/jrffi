@@ -46,10 +46,6 @@
             (cpointer-push-tag! return tag)
             return)))))
 
-(define-cstruct _message
-  ([status _int]
-   [string _string]))
-
 (define-cstruct _JavaVMOption
   ([option _string]
    [extra _pointer]))
@@ -73,7 +69,7 @@
 (define __jdouble  _double*)
 (define __jvoid    _void)
 
-(define-runtime-path jrffi-path "./jrffi")
+(define-runtime-path jrffi-path "jrffi")
 (define jrffi (ffi-lib jrffi-path))
 
 (define (get-jrffi-obj name type)
@@ -87,7 +83,7 @@
 
 (cimports
  [attach-current-thread                          : -> __jnienv]
- [create-jvm                                     : (_list i _JavaVMOption) _int -> _message-pointer]
+ [create-jvm                                     : (_list i _JavaVMOption) _int -> _int]
  [jvm-initialized?    = is-jvm-initialized       : -> _bool]
  #:with-env
  [new-object-array                               : __jsize __jclass __jobject -> __jobject]
@@ -124,11 +120,11 @@
   (or (hash-ref! class-ids clss (thunk (find-class* clss))) 
       (error (string-append "class not found " clss))))
 
-(define (get-method-id clss name sig #:static? [static? #f])
+(define (get-method-id clss name sig static?)
   (let ([return ((if static? get-static-method-id* get-method-id*) clss name sig)])
     (if return return (error (format "Method not found ~a: ~a" name sig)))))
 
-(define (get-field-id clss name sig #:static? [static? #f])
+(define (get-field-id clss name sig static?)
   (let ([return ((if static? get-static-field-id* get-field-id*) clss name sig)])
     (if return return (error (format "Field not found ~a: ~a" name sig)))))
 
