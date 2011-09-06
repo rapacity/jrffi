@@ -1,7 +1,6 @@
 #lang racket/base
 
-(require (for-syntax syntax/parse racket/syntax racket)
-         ffi/unsafe racket/function racket/string
+(require ffi/unsafe racket/function racket/string
          "start.rkt" "c.rkt")
 
 (struct jtype (signature tag predicate ctype racket->java java->racket))
@@ -42,8 +41,6 @@
     (string-append "(" args-signature ")" return-signature)))
 
 ; --- predicates for java types on racket ---
-(require (only-in web-server/dispatch/extend make-coerce-safe?) srfi/26/cut)
-
 (define jboolean?   boolean?)
 (define jbyte?      byte?)
 (define jchar?      char?)
@@ -75,7 +72,10 @@
          (let ([class-id (find-class class-name)])
            (struct-copy jtype/object self
              [signature    #:parent jtype (make-class-signature class-name)]
-             [predicate    #:parent jtype (or predicate (make-jobject-predicate class-id))]
+             [predicate    #:parent jtype (or predicate 
+                                              (procedure-rename
+                                               (make-jobject-predicate class-id)
+                                               (string->symbol (format "~a?" class-name))))]
              [racket->java #:parent jtype racket->java]
              [java->racket #:parent jtype java->racket]
              [class                 class-id]))))
@@ -126,101 +126,17 @@
                    (get-object-array-element c i)))
                class-id
                _jobject)))))
-(define-syntax (_jmethod stx)
-  (define-syntax-class type #:literals (->)
-    (pattern (~and x (~not (~or (~literal ...) ->)))))
-  (syntax-parse stx #:literals (->)
-    [(_ arg:type ... (~optional (~seq farg:type (~literal ...))) (~optional (~seq -> return*)))
-     (with-syntax* ([(arg* ...) (generate-temporaries #'(arg ...))]
-                    [(larg ... . marg) #`(arg* ... #,@(if (attribute farg) #'arg-rest #`()))]
-                    [(aarg ...) #`(arg* ... #,@(if (attribute farg) #'(arg-rest) #`()))]
-                    [return (if (attribute return*) #'return* #'_jvoid)])
-       #`(let* ([args  (list arg ... #,@(if (attribute farg) #`((_jlist farg)) #`()))])
-           (jprocedure args return
-            (λ (type jnienv clss method func)
-              (case type
-                [(constructor) (λ (larg ... . marg) (func jnienv clss method aarg ...))]
-                [(static-method) (λ (larg ... . marg) (func jnienv clss method aarg ...))]
-                [(method) (λ (o larg ... . marg) (func jnienv o method aarg ...))]
-                [else (error '_jmethod "invalid type provided")])))))]))
-; dynamic and slower version of _jmethod
-(define (_jprocedure args return #:repeat-last-arg? [repeat-last-arg? #f])
-  (define (nest-at lst i)
-    (if (null? lst) (list null)
-        (let loop ([lst lst] [i i])
-          (cond [(null? lst) null]
-                [(zero? i) (list lst)]
-                [else (cons (car lst) (loop (cdr lst) (sub1 i)))]))))
- (jprocedure args return
-    (if repeat-last-arg?
-        (let ([repeat-position (sub1 (length args))])
-          (λ (type jnienv clss method func)
-            (case type
-              [(constructor) (λ larg  (apply func jnienv clss method (nest-at larg repeat-position)))]
-              [(static-method) (λ larg (apply func jnienv clss method (nest-at larg repeat-position)))]
-              [(method) (λ (o . larg) (apply func jnienv o method (nest-at larg repeat-position)))])))
-        (λ (type jnienv clss method func)
-          (case type
-            [(constructor) (λ larg (apply func jnienv clss method larg))]
-            [(static-method) (λ larg (apply func jnienv clss method larg))]
-            [(method) (λ (o . larg) (apply func jnienv o method larg))]
-            [else (error '_jprocedure "invalid type provided")])))))
-; get-jmethod/get-jconstructor pass the following arguments (type jnienv class method func) 
-; to a function created by _jmethod or _jprocedure 
-; according to the type the function returns one of the following functions
-; | constructor   (λ (args ...) ; doesn't need to take in an object and the class is static
-; | static-method (λ (args ...) ; same reasoning as above
-; | method        (λ (object args ...)
 
 
 ; --- interfacing with java methods ---
-(define (get-jconstructor class-id type)
-  (let* ([args      (jprocedure-args type)]
-         [return    (jprocedure-return type)]
-         [proc      (jprocedure-proc type)]
-         [signature (make-signature args return)]
-         [method-id (get-method-id class-id "<init>" signature)]
-         [ffi-func  (get-jrffi-obj "new-object"
-                      (_cprocedure (list* __jnienv __jclass __jmethodID (map jtype->ctype args))
-                                   __jobject))])
-    (proc 'constructor current-jnienv class-id method-id ffi-func)))
 
-(define (get-jconstructor/id+ffi-func class-id args return)
-  (let* ([signature (make-signature args return)]
-         [method-id (get-method-id class-id "<init>" signature)]
-         [ffi-func  (get-jrffi-obj "new-object"
-                      (_cprocedure (list* __jnienv __jclass __jmethodID (map jtype->ctype args))
-                                   __jobject))])
-    (values method-id ffi-func)))
 
-(define (get-jmethod class-id method-name type #:static? [static? #f])
-  (let* ([args      (jprocedure-args type)]
-         [return    (jprocedure-return type)]
-         [proc      (jprocedure-proc type)]
-         [signature (make-signature args return)]
-         [method-id (get-method-id class-id method-name signature #:static? static?)]
-         [type      (if static? 'static-method 'method)]
-         [ffi-func  (get-jrffi-obj 
-                     (format "call-~a~a-method" (if static? "static-" "") (jtype-tag return))       
-                     (_cprocedure (append (list __jnienv (if static? __jclass __jobject)
-                                                __jmethodID) (map jtype->ctype args))
-                                  (jtype->ctype return)))])
-    (proc type current-jnienv class-id method-id ffi-func)))
-
-(define (get-jmethod/id+ffi-func class-id method-name args return #:static? [static? #f])
-  (let* ([signature (make-signature args return)]
-         [method-id (get-method-id class-id method-name signature #:static? static?)]
-         [ffi-func  (get-jrffi-obj 
-                     (format "call-~a~a-method" (if static? "static-" "") (jtype-tag return))       
-                     (_cprocedure (append (list __jnienv (if static? __jclass __jobject)
-                                                __jmethodID) (map jtype->ctype args))
-                                  (jtype->ctype return)))])
-    (values method-id ffi-func)))
 
 ; --- interfacing with java fields ---
-(define (get-jaccessor class-id field-name type #:static? [static? #f])
+(define (get-jaccessor class-type field-name type #:static? [static? #f])
   (let* ([signature (jtype-signature type)]
-         [field-id  (get-field-id class-id field-name signature #:static? static?)]
+         [class-id  (jtype/object-class class-type)]
+         [field-id  (get-field-id class-id field-name signature static?)]
          [ctype     (jtype-ctype type)]
          [ffi-func  (get-jrffi-obj
                      (format "get-~a~a-field" (if static? "static-" "") (jtype-tag type))
@@ -228,9 +144,10 @@
     (if static? (λ () (ffi-func current-jnienv class-id field-id))
         (λ (obj) (ffi-func current-jnienv obj field-id)))))
 
-(define (get-jmutator class-id field-name type #:static? [static? #f])
+(define (get-jmutator class-type field-name type #:static? [static? #f])
   (let* ([signature (jtype-signature type)]
-         [field-id  (get-field-id class-id field-name signature #:static? static?)]
+         [class-id  (jtype/object-class class-type)]
+         [field-id  (get-field-id class-id field-name signature static?)]
          [ctype     (jtype-ctype type)]
          [ffi-func (get-jrffi-obj 
                     (format "set-~a~a-field" (if static? "static-" "") (jtype-tag type))
@@ -255,12 +172,10 @@
 (provide _jboolean _jbyte _jchar _jshort _jint _jlong _jfloat _jdouble _jvoid
          _jobject _jstring _jlist)
 
-(provide get-jconstructor get-jmethod get-jparameter get-jmutator get-jaccessor)
-
 ;(provide instance-of? (rename-out [find-class find-class]) get-method-id get-field-id)
 
 
-(provide (all-defined-out) get-jmethod/id+ffi-func  : -> current-jnienv)
+(provide (all-defined-out)   : -> current-jnienv)
 
 
 

@@ -1,9 +1,7 @@
 #lang racket/base
 
-
-
 (require racket/stxparam)
-(require (for-syntax syntax/parse racket/syntax racket) racket/file racket/list)
+(require (for-syntax syntax/parse racket/syntax racket) racket/list)
 (require ffi/unsafe racket/runtime-path racket/function)
 
 

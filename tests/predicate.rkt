@@ -1,13 +1,11 @@
 #lang racket
 (require rackunit)
 
-(require "../main.rkt")
+(require "../main.rkt"  (java java/lang/Integer))
 
-(define _int (_jobject "java/lang/Integer"))
-(define int? (jtype-predicate _int))
 
-(test-true "jtype predicate, true" (int? (new-integer 33333)))
-(test-false "jtype predicate, false" (int? (new-string "fffff")))
+(test-true "jtype predicate, true" (Integer? (new-Integer 33333)))
+(test-false "jtype predicate, false" (Integer? (new-string "fffff")))
 
 (define _jdouble-list  (_jlist _jdouble))
 (define _jdouble-list?  (jtype-predicate _jdouble-list))

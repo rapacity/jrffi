@@ -1,55 +1,58 @@
-#lang racket
+#lang racket/base
 
-(require "core.rkt" "misc.rkt" (only-in "c.rkt" find-class instance-of? get-string new-string))
 
-(define Boolean (find-class "java/lang/Boolean"))
-(define Short (find-class "java/lang/Short"))
-(define Byte (find-class "java/lang/Byte"))
-(define Integer (find-class "java/lang/Integer"))
-(define Long (find-class "java/lang/Long"))
-(define Double (find-class "java/lang/Double"))
-(define Float (find-class "java/lang/Float"))
-(define Character (find-class "java/lang/Character"))
-(define String (find-class "java/lang/String"))
+(require "core.rkt" "c.rkt" "overload.rkt")
+(require "require.rkt")
+ 
 
 
 
-(define new-integer (jconstructor Integer _jint))
-(define new-boolean (jconstructor Boolean _jboolean))
-(define new-float (jconstructor Float _jfloat))
-(define new-byte (jconstructor Byte _jbyte))
-(define new-character (jconstructor Character _jchar))
-
-
-(define Boolean.booleanValue (jmethod Boolean booleanValue : -> _jboolean))
-(define Byte.byteValue (jmethod Byte byteValue : -> _jbyte))
-(define Short.shortValue (jmethod Short shortValue : -> _jshort))
-(define Integer.intValue (jmethod Integer intValue : -> _jint))
-(define Long.longValue (jmethod Long longValue : -> _jlong))
-(define Double.doubleValue (jmethod Double doubleValue : -> _jdouble))
-(define Float.floatValue (jmethod Float floatValue : -> _jfloat))
-(define Character.charValue (jmethod Character charValue : -> _jchar))
+(require (java java/lang/Boolean
+               java/lang/Short
+               java/lang/Byte
+               java/lang/Integer
+               java/lang/Long
+               java/lang/Double
+               java/lang/Float
+               java/lang/Character
+               java/lang/String
+               ))
 
 (define (primitive-jobject->racket obj)
-  (cond [(instance-of? obj Integer)   (Integer.intValue obj)]
-        [(instance-of? obj String)    (get-string obj)]
-        [(instance-of? obj Boolean)   (Boolean.booleanValue obj)]
-        [(instance-of? obj Float)     (Float.floatValue obj)]
-        [(instance-of? obj Short)     (Short.shortValue obj)]
-        [(instance-of? obj Byte)      (Byte.byteValue obj)]
-        [(instance-of? obj Character) (Character.charValue obj)]
-        [(instance-of? obj Long)      (Long.longValue obj)]
-        [(instance-of? obj Double)    (Double.doubleValue obj)]
-        [else (error "Not a primitive jobject")]))
+  (cond
+    [(String? obj)    (get-string obj)]
+    [(Boolean? obj)   (Boolean-booleanValue obj)]
+    [(Byte? obj)      (Byte-byteValue obj)]
+    [(Short? obj)     (Short-shortValue obj)]
+    [(Integer? obj)   (Integer-intValue obj)]
+    [(Long? obj)      (Long-longValue obj)]
+    [(Float? obj)     (Float-floatValue obj)]
+    [(Double? obj)    (Double-doubleValue obj)]    
+    [(Character? obj) (Character-charValue obj)]
+    [else (error "Not a primitive jobject")]))
 
-(define (racket->primitive-jobject obj)
-  (cond [(byte? obj)    (new-byte obj)]
-        [(integer? obj) (new-integer obj)]
-        [(string? obj)  (new-string obj)]
-        [(boolean? obj) (new-boolean obj)]
-        [(char? obj)    (new-character obj)]
-        [(real? obj)    (new-float obj)]
-        [else (error "Not a primitive jobject")]))
+
+
+
+(define racket->primitive-jobject
+  (let ([new-boolean   (jinst new-Boolean _jboolean)]
+        [new-byte      (jinst new-Byte _jbyte)]
+        [new-short     (jinst new-Short _jshort)]
+        [new-integer   (jinst new-Integer _jint)]
+        [new-long      (jinst new-Long _jlong)]
+        [new-float     (jinst new-Float _jfloat)]
+        [new-double    (jinst new-Double _jdouble)])
+    (lambda (obj)
+      (cond [(jstring? obj)  (new-string obj)]
+            [(jboolean? obj) (new-Boolean obj)]
+            [(jbyte? obj)    (new-byte obj)] 
+            [(jshort? obj)   (new-short obj)]
+            [(jint? obj)     (new-integer obj)]
+            [(jlong? obj)    (new-long obj)]
+            [(jfloat? obj)   (new-float obj)]
+            [(jdouble? obj)  (new-double obj)]
+            [(jchar? obj)    (new-Character obj)]
+            [else (error "Not a primitive jobject")]))))
 
 
 (define _jobject-primitive

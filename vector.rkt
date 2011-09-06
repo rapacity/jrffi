@@ -1,6 +1,6 @@
-#lang racket
+#lang racket/base
 
-(require "core.rkt" "c.rkt")
+(require "core.rkt" "c.rkt" (for-syntax racket/base))
 
 
 (require (for-syntax racket/function racket/syntax))
@@ -48,7 +48,10 @@
                   _jobject #f #f class-id _jobject)))
 (define-values (make-jobject-vector jobject-vector-ref jobject-vector-set!)
   (let-values ([(m r s!) (tag->array-info 'object)])
-    (values (lambda (i class-id) (jobject-vector (m i class-id #f) _jobject i))
+    (values (lambda (i obj)
+              (unless (jtype/object? obj)
+                (error "not a valid object type"))
+              (jobject-vector (m i (jtype/object-class obj) #f) _jobject i))
             (lambda (o i) (r (jvector-cpointer o) i))
             (lambda (o i v) (s! (jvector-cpointer o) i v)))))
 

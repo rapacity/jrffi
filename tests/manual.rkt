@@ -3,7 +3,8 @@
 
 (require "../main.rkt")
 
-
+; convenience macros need recoding
+#|
 (define java.util.Arrays (find-class "java/util/Arrays"))
 (define java.lang.Integer (find-class "java/lang/Integer"))
 
@@ -35,3 +36,4 @@
 (test-equal? "jmethod single-argument"
              "35" (integerToString (new-integer 35)))
 
+|#

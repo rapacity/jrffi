@@ -1,14 +1,14 @@
+Warning! 
+
+The project is currently experimental, its api is inconsistent,
+and subject to drastic change, lacks complete documentation,
+sufficient unit testing, and is filled with disorganized messy code. 
+
+-------------------------------------------------------------------
+
 The goal of this project is facilitate the use of java libraries
 on racket, by making it easier to write manual bindings and 
 by also providing support for automatic binding
-
-the project is currently experimental, its api is inconsistent,
-and subject to drastic change, lacks complete documentation,
-and sufficient unit testing
-
-some documentation may be found in the scribblings folder
-for more examples on how to use the library you can check the tests/
-folder 
 
 Installation:
 make sure to have the JAVA_HOME and ARCH variables set,
@@ -18,8 +18,24 @@ Troubleshooting:
 if you get one of the error messages below 
 (libjava.so: cannot open shared object file: No such file or directory)
 (libjvm.so: cannot open shared object file: No such file or directory)
-you'll have to either set the jre path in the LD_LIBRARY_PATH environment variable
-or hard define it in your ld.conf.d directory
+you'll have to either hard define it in your ld.conf.d directory or
+set the jre path in the LD_LIBRARY_PATH environment variable
 
 export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64:$JAVA_HOME/jre/lib/amd64/server
+
+Example Usage:
+; the (java package ...) require sub-form is provided by jrffi
+; let's use it to import the java.lang.Integer class
+
+> (require jrffi (java java/lang/Integer))
+> (define i (new-Integer 6765))
+> (Integer-toString i)
+"6765"
+
+; the Integer-toString is overloaded and dispatches on type, this checking
+; can be costly when performance matters, the jinst function will return
+; a non-overloaded version based on the provided input argument types
+
+> (jinst Integer-toString _jint)
+#<procedure>
 

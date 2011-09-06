@@ -1,11 +1,9 @@
 #lang racket
 
-(require rackunit (except-in "../main.rkt" Integer) "../auto.rkt")
+(require rackunit "../main.rkt" (java java/util/Arrays java/lang/Integer))
 
-
-(jrequire java.util.Arrays java.lang.Integer)
-
-
+; currently broken jrequire deprecated
+#|
 (define x (make-jvector _jboolean 2))
 (jvector-set! x 0 #f)
 (jvector-set! x 1 #t)
@@ -16,12 +14,8 @@
 
 (test-equal? "jrequire field-accessor" 2147483647 (get-java.lang.Integer-MAX_VALUE))
 
-(jrequire java.lang.Integer #:import)
-
 (test-equal? "jrequire constructor/method #:import" "444" (Integer-toString (new-Integer "444")))
 (test-equal? "jrequire field-accessor #:import" 2147483647 (get-Integer-MAX_VALUE))
-
-(jrequire java.lang.Integer #:import #:racketify)
 
 
 (test-equal? "jrequire constructor/method #:import #:racketify" "100"
@@ -35,7 +29,6 @@
 (test-true "jrequire predicate? #:import #:racketify"
            (integer? (make-integer 100)))
 
-(require ffi/unsafe)
-
 (test-true "jrequire class #:import #:racketify"
-           (cpointer-has-tag? integer 'jclass))
+           (jtype? integer))
+|#

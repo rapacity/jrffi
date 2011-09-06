@@ -1,8 +1,6 @@
-#lang racket
+#lang racket/base
 
-(require (for-syntax syntax/parse racket/function racket/syntax srfi/26/cut) "core.rkt" "c.rkt")
-(require racket/system)
-(require srfi/13)
+(require racket/system srfi/13 racket/match racket/function racket/list racket/port racket/dict)
 
 (struct constructor-signature (vararg? args return) #:transparent)
 (struct method-signature (name abstract? static? final? vararg? args return) #:transparent)
@@ -49,7 +47,9 @@
                          (extract-properties (first lines))
                          (vararg? (first lines)))
                         output))))))
-  (let* ([javap (process (string-append "javap -s -protected " clss))]
+  (define (quote-sigil str)
+    (regexp-replace* #rx"[$]" str "\\\\$"))
+  (let* ([javap (process (string-append "javap -s -protected " (quote-sigil clss)))]
          [input-port (first javap)]
          [error-port (fourth javap)])
     (let ([error-string (read-line error-port)])
