@@ -9,6 +9,8 @@
 (struct jvector (cpointer type length))
 (struct jprocedure (args return proc))
 
+(define current-java-throw-handler (make-parameter raise))
+
 (define ((single-compose f1 f2) e) (f1 (f2 e)))
 
 (define (make-jtype obj racket->java java->racket)

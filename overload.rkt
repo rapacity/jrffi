@@ -67,8 +67,9 @@
                   (begin0
                     (ffi-func current-jnienv class-id method-id arg+novar-id ... vararg-id* ...)
                     (when (has-exception? current-jnienv)
-                      (raise (begin0 (exception-occurred current-jnienv)
-                                     (exception-clear current-jnienv)))))))
+                      ((current-java-throw-handler)
+                       (begin0 (exception-occurred current-jnienv)
+                               (exception-clear current-jnienv)))))))
                (values
                 (-> obj? pred?-id ... any)
                 (λ (obj arg+novar-id ... . vararg-id)
@@ -77,8 +78,9 @@
                   (begin0
                     (ffi-func current-jnienv obj method-id arg+novar-id ... vararg-id* ...)
                     (when (has-exception? current-jnienv)
-                      (raise (begin0 (exception-occurred current-jnienv)
-                                     (exception-clear current-jnienv)))))))))))))
+                      ((current-java-throw-handler)
+                       (begin0 (exception-occurred current-jnienv)
+                               (exception-clear current-jnienv)))))))))))))
   (syntax-parse stx
     [(_ single:jfunction
         (~optional (~and #:check check-kw))

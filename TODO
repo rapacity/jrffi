@@ -1,6 +1,6 @@
 defining java classes
-exception handling
 clean up and organize the code
 rework the api
 write documentation
 optimize overloaded functions
+fix option to output stack traces on exceptions/errors
