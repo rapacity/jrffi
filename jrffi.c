@@ -47,6 +47,19 @@ jint detach_current_thread() {
   return (*jvm)->DetachCurrentThread(jvm);
 }
 
+
+jboolean exception_check(JNIEnv* env) {
+  return (*env)->ExceptionCheck(env);
+}
+
+jthrowable exception_occurred(JNIEnv* env) {
+  return (*env)->ExceptionOccurred(env);
+}
+
+void exception_clear(JNIEnv* env) {
+  (*env)->ExceptionClear(env);
+}
+
 jclass find_class(JNIEnv* env, const char* name) {
   return (*env)->FindClass(env, name);
 }

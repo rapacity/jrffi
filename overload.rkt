@@ -4,9 +4,13 @@
 
 (require (for-syntax syntax/parse racket/syntax racket/base) racket/string racket/contract/region)
 
-(struct joverload-row (pred? signature method contract) #:transparent)
+(require "query.rkt" "auto.rkt")
 
-(struct joverload (check? methods) #:transparent #:property prop:procedure
+
+(struct joverload-row (pred? signature method contract))
+
+(struct joverload (check? methods)
+  #:property prop:procedure
   (λ (self . args)
     (let loop ([rows (joverload-methods self)])
       (if (null? rows) (error "signature for provided args not found")
@@ -60,13 +64,21 @@
                 (λ (arg+novar-id ... . vararg-id)
                   (and (pred?-id arg-id) ... ))
                 (λ (arg+novar-id ... . vararg-id)
-                  (ffi-func current-jnienv class-id method-id arg+novar-id ... vararg-id* ...)))
+                  (begin0
+                    (ffi-func current-jnienv class-id method-id arg+novar-id ... vararg-id* ...)
+                    (when (has-exception? current-jnienv)
+                      (raise (begin0 (exception-occurred current-jnienv)
+                                     (exception-clear current-jnienv)))))))
                (values
                 (-> obj? pred?-id ... any)
                 (λ (obj arg+novar-id ... . vararg-id)
                   (and (obj? obj) (pred?-id arg-id) ... ))
                 (λ (obj arg+novar-id ... . vararg-id)
-                  (ffi-func current-jnienv obj method-id arg+novar-id ... vararg-id* ...)))))))))
+                  (begin0
+                    (ffi-func current-jnienv obj method-id arg+novar-id ... vararg-id* ...)
+                    (when (has-exception? current-jnienv)
+                      (raise (begin0 (exception-occurred current-jnienv)
+                                     (exception-clear current-jnienv)))))))))))))
   (syntax-parse stx
     [(_ single:jfunction
         (~optional (~and #:check check-kw))

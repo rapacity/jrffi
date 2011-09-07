@@ -82,7 +82,10 @@
 (cimports
  [attach-current-thread                          : -> __jnienv]
  [create-jvm                                     : (_list i _JavaVMOption) _int -> _int]
- [jvm-initialized?    = is-jvm-initialized       : -> _bool]
+ [jvm-initialized?      = is-jvm-initialized     : -> _bool]
+ [has-exception?        = exception-check        : __jnienv -> __jboolean]
+ [exception-occurred                             : __jnienv -> __jobject]
+ [exception-clear                                : __jnienv -> _void]
  #:with-env
  [new-object-array                               : __jsize __jclass __jobject -> __jobject]
  [set-object-array-element                       : __jobject __jsize __jobject -> _void]
