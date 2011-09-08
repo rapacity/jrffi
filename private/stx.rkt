@@ -1,6 +1,6 @@
-#lang racket
+#lang racket/base
 
-(require (for-syntax syntax/stx))
+(require (for-syntax syntax/stx racket/base))
 
 (begin-for-syntax
 
