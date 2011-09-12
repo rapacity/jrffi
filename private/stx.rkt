@@ -1,10 +1,7 @@
 #lang racket/base
 
-(require (for-syntax syntax/stx racket/base))
+(require syntax/stx)
 
-(begin-for-syntax
-
-  
 ;<!!!> this code is taken racket with-stx.rkt and has been slightly modified
 (define counter 0)
 (define (append-number s)
@@ -51,7 +48,10 @@
     (if ? else #`(#,stx)))
   
   
-  )
+  (define (generate-n-temporaries n)
+    (generate-temporaries (build-list n values)))
+  
+  
 
 
-(provide (for-syntax generate-temporaries* maybe-syntax maybe-not-syntax))
+(provide generate-temporaries* maybe-syntax maybe-not-syntax generate-n-temporaries)
