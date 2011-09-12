@@ -4,3 +4,9 @@ rework the api
 write documentation
 optimize overloaded functions
 fix option to output stack traces on exceptions/errors
+make _jobject/null type
+make _or-null type for java
+make java provide subform 
+complete java require subform flag options
+load class map by inspecting all jars in classpath
+support callbacks

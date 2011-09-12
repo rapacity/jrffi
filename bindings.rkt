@@ -42,7 +42,7 @@
          [output (open-output-file file #:exists exists)])
     (displayln "#lang racket/base" output)
     (displayln "(provide (all-defined-out))" output)
-    (for ([i (in-list (list "core.rkt" "overload.rkt" "jvector.rkt"))])
+    (for ([i (in-list (list "core.rkt" "funtype.rkt" "fieldtype.rkt" "jvector.rkt"))])
       (displayln
        (string-append 
         "(require \"" (string-append* (build-list (add1 (length package)) (λ (_) "../"))) i "\")") output))

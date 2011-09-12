@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require "query.rkt"  racket/match srfi/26/cut racket/list
+(require "query.rkt"  racket/match srfi/26/cut racket/list "private/list.rkt"
            racket/string)
 
 (define default-autobind-typemap
@@ -113,8 +113,8 @@
      (define ,(namer-stx 'predicate class-name #f) (jtype-predicate ,class-identifier))
      ,@(if (null? class-constructors) `()
            `((define ,(namer-stx 'constructor class-name #f)
-               (get-jrffi-constructor ,class-identifier
-                 (_jfun ,@(map (match-lambda [(constructor-signature vararg? args return)
+               (get-java-constructor ,class-identifier
+                 (_jconstructor ,@(map (match-lambda [(constructor-signature vararg? args return)
                                               `(,@(map token->type args)
                                                 ,@(if vararg? `(#:vararg) `()))])
                                class-constructors))))))
@@ -123,8 +123,8 @@
          (match i
            [(list-rest method-name methods)
             `(define ,(namer-stx 'method class-name method-name)
-               (get-jrffi-method ,class-identifier ,method-name 
-                 (_jfun
+               (get-java-method ,class-identifier ,method-name 
+                 (_jmethod
                   ,@(map (match-lambda [(method-signature _ _ static? _ vararg? args return)
                                         `(,@(map token->type args)
                                           ->
@@ -135,15 +135,17 @@
          (match i
            [(field-signature field-name final? static? type)
             `(define ,(namer-stx 'accessor class-name field-name)
-                  (get-jaccessor ,class-identifier ,field-name ,(token->type type)
-                                 #:static? ,static?))]))
+                  (get-java-accessor ,class-identifier ,field-name
+                                     (_jfield ,(token->type type)
+                                              ,@(if static? `(#:static) `()))))]))
      ,@(for/fold ([output null]) ([i (in-list class-fields)])
          (match i
            [(field-signature field-name final? static? type)
             (if final? output
                 (cons `(define ,(namer-stx 'mutator class-name field-name)
-                         (get-jmutator ,class-identifier ,field-name ,(token->type type)
-                                        #:static? ,static?))
+                         (get-java-mutator ,class-identifier ,field-name
+                                           (_jfield ,(token->type type)
+                                                    ,@(if static? `(#:static) `()))))
                       output))]))))
 
 ;(construct-syntax 'java.lang.String (type-mapper default-autobind-typemap) #t #t #f)

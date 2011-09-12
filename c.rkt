@@ -48,6 +48,12 @@
   ([option _string]
    [extra _pointer]))
 
+(define-cstruct _JNINativeMethod
+  ([name      _string]
+   [signature _string]
+   [function  _pointer]))
+
+
 (define __jfieldID  _pointer)
 (define __jmethodID _pointer)
 (define __signature _string)
@@ -105,6 +111,7 @@
  [new-string                                     : _string  -> __jobject]
  [get-string*           = get-string             : __jstring -> _pointer]
  [release-string-chars                           : __jobject _pointer -> _void]
+ [register-natives                               : __jclass (_list i _JNINativeMethod) __jint -> __jint]
  )
 
 (define (get-string x)
@@ -123,12 +130,20 @@
 
 (define (get-method-id clss name sig static?)
   (let ([return ((if static? get-static-method-id* get-method-id*) clss name sig)])
-    (if return return (error (format "Method not found ~a: ~a" name sig)))))
+    (if return return 
+        (begin
+          (when (has-exception? current-jnienv)
+            (exception-clear current-jnienv))
+          (error (format "Method not found ~a: ~a" name sig))))))
 
 (define (get-field-id clss name sig static?)
   (let ([return ((if static? get-static-field-id* get-field-id*) clss name sig)])
-    (if return return (error (format "Field not found ~a: ~a" name sig)))))
-
+    (if return return
+        (begin
+          (when (has-exception? current-jnienv)
+            (exception-clear current-jnienv))
+          (error (format "Field not found ~a: ~a" name sig))))))
+  
 
 (begin-for-syntax
   (define (id:array-make name)

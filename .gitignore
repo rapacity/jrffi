@@ -11,3 +11,4 @@ scribblings/*.html
 scribblings/*.css
 doc/*
 bindings/*
+prototypes/*

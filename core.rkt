@@ -7,7 +7,6 @@
 (struct jtype/object jtype (class))
 (struct jtype/vector jtype/object (element))
 (struct jvector (cpointer type length))
-(struct jprocedure (args return proc))
 
 (define current-java-throw-handler (make-parameter raise))
 
@@ -37,10 +36,6 @@
 ; --- signature makers ---
 (define (make-class-signature c)  (string-append "L" c ";"))
 (define (make-vector-signature s) (string-append "[" s))
-(define (make-signature args return)
-  (let ([args-signature (string-append* (map jtype-signature args))]
-        [return-signature (jtype-signature return)])
-    (string-append "(" args-signature ")" return-signature)))
 
 ; --- predicates for java types on racket ---
 (define jboolean?   boolean?)
@@ -57,8 +52,8 @@
 
 ; --- java types ---
 (define _jboolean (jtype "Z" 'boolean jboolean? __jboolean #f            #f))
-(define _jbyte    (jtype "B" 'byte    jbyte?    __jbyte    #f            #f))
 (define _jchar    (jtype "C" 'char    jchar?    __jchar    char->integer integer->char))
+(define _jbyte    (jtype "B" 'byte    jbyte?    __jbyte    #f            #f))
 (define _jshort   (jtype "S" 'short   jshort?   __jshort   #f            #f))
 (define _jint     (jtype "I" 'int     jint?     __jint     #f            #f))
 (define _jlong    (jtype "J" 'long    jlong?    __jlong    #f            #f))
@@ -130,46 +125,6 @@
                _jobject)))))
 
 
-; --- interfacing with java methods ---
-
-
-
-; --- interfacing with java fields ---
-(define (get-jaccessor class-type field-name type #:static? [static? #f])
-  (let* ([signature (jtype-signature type)]
-         [class-id  (jtype/object-class class-type)]
-         [field-id  (get-field-id class-id field-name signature static?)]
-         [ctype     (jtype-ctype type)]
-         [ffi-func  (get-jrffi-obj
-                     (format "get-~a~a-field" (if static? "static-" "") (jtype-tag type))
-                     (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID) ctype))])
-    (if static? (λ () (ffi-func current-jnienv class-id field-id))
-        (λ (obj) (ffi-func current-jnienv obj field-id)))))
-
-(define (get-jmutator class-type field-name type #:static? [static? #f])
-  (let* ([signature (jtype-signature type)]
-         [class-id  (jtype/object-class class-type)]
-         [field-id  (get-field-id class-id field-name signature static?)]
-         [ctype     (jtype-ctype type)]
-         [ffi-func (get-jrffi-obj 
-                    (format "set-~a~a-field" (if static? "static-" "") (jtype-tag type))
-                    (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID ctype) 
-                                 ctype))])
-    (if static? (λ (new-value) (ffi-func current-jnienv class-id field-id new-value))
-        (λ (obj new-value) (ffi-func current-jnienv obj field-id new-value)))))
-
-(define (get-jparameter class-id field-name type #:static? [static? #f])
-  (let* ([accessor (get-jaccessor class-id field-name type #:static? static?)]
-         [mutator  (get-jmutator class-id field-name type #:static? static?)])
-    (if static?
-        (case-lambda
-          [() (accessor)]
-          [(new-value) (mutator new-value)])
-        (case-lambda
-          [(obj) (accessor obj)]
-          [(obj new-value) (mutator obj new-value)]))))
-
-
 
 (provide _jboolean _jbyte _jchar _jshort _jint _jlong _jfloat _jdouble _jvoid
          _jobject _jstring _jlist)
@@ -177,7 +132,7 @@
 ;(provide instance-of? (rename-out [find-class find-class]) get-method-id get-field-id)
 
 
-(provide (all-defined-out)   : -> current-jnienv)
+(provide (all-defined-out)  current-jnienv)
 
 
 

@@ -21,7 +21,7 @@ if you get one of the error messages below
 you'll have to either hard define it in your ld.conf.d directory or
 set the jre path in the LD_LIBRARY_PATH environment variable
 
-export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/$ARCH:$JAVA_HOME/jre/lib/$ARCH/server
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/$ARCH:$JAVA_HOME/jre/lib/$ARCH/server
 
 Example Usage:
 ; the (java package ...) require sub-form is provided by jrffi

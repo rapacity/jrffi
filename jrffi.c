@@ -47,6 +47,10 @@ jint detach_current_thread() {
   return (*jvm)->DetachCurrentThread(jvm);
 }
 
+jint register_natives(JNIEnv* env, jclass class, const JNINativeMethod *methods,
+                      jint n_methods) {
+ (*env)->RegisterNatives(env, class, methods, n_methods);
+}
 
 jboolean exception_check(JNIEnv* env) {
   return (*env)->ExceptionCheck(env);

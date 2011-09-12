@@ -7,5 +7,5 @@
 (define required-core-version "5.1")
 (define primary-file "main.rkt")
 (define pre-install-collection "make.rkt")
-(define compile-omit-files '("tests" "make.rkt"))
+(define compile-omit-files '("tests" "prototypes" "make.rkt"))
 (define scribblings '(("scribblings/auto.scrbl")))

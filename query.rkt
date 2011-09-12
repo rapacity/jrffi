@@ -1,6 +1,8 @@
 #lang racket/base
 
-(require racket/system srfi/13 racket/match racket/function racket/list racket/port racket/dict)
+(require racket/system srfi/13 racket/match racket/function racket/list racket/port)
+
+(require "private/list.rkt")
 
 (struct constructor-signature (vararg? args return) #:transparent)
 (struct method-signature (name abstract? static? final? vararg? args return) #:transparent)
@@ -87,9 +89,6 @@
                    `(object ,class-name))]
           [else (error 'parse-type (format "Unrecognized Type: ~a" msg))]))))
 
-(define (partition-by proc lst)
-  (for/fold ([buckets null]) ([e (in-list lst)])
-    (dict-update buckets (proc e) (curry cons e) null)))
 
 (define (parse-types port)
   (let loop ()
