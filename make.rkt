@@ -25,6 +25,6 @@
 (current-extension-compiler-flags (list* "-fPIC" "-shared" "-O3" libs))
  
 (define (pre-installer top home)
-  (compile-extension #f "jrffi.c" "jrffi.so" includes))
+  (compile-extension #f (build-path home "jrffi.c")  (build-path home "jrffi.so") includes))
 
 (provide pre-installer)
