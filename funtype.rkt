@@ -252,7 +252,7 @@
                               #:output-contract? [output-contract? #f]
                               #:apply-contract?  [apply-contract? #f])
     (let ([objpred? (jtype-predicate class-type)]
-        [class-id (jtype/object-class class-type)])
+          [class-id (jtype/object-class class-type)])
   (define (get-single method-type)
     (let* ([signature   (jtype/fun-signature method-type)]
            [arg-types   (jtype/fun-args method-type)]

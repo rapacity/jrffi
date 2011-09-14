@@ -18,7 +18,9 @@
          (jtype/field type static?)))]))
 
 
-(define (get-java-accessor class-type field-name ftype)
+(define (get-java-accessor class-type field-name ftype
+                              #:output-contract? [output-contract? #f]
+                              #:apply-contract?  [apply-contract? #f])
   (let* ([type      (jtype/field-type ftype)]
          [static?   (jtype/field-static? ftype)]
          [signature (jtype-signature type)]
@@ -28,10 +30,19 @@
          [ffi-func  (get-jrffi-obj
                      (format "get-~a~a-field" (if static? "static-" "") (jtype-tag type))
                      (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID) ctype))])
-    (if static? (λ () (ffi-func current-jnienv class-id field-id))
-        (λ (obj) (ffi-func current-jnienv obj field-id)))))
+    (let-values ([(cont func)
+                  (if static?
+                      (values
+                       (-> (jtype-predicate type))
+                       (λ () (ffi-func current-jnienv class-id field-id)))
+                      (values
+                       (-> (jtype-predicate class-type) (jtype-predicate type))
+                       (λ (obj) (ffi-func current-jnienv obj field-id))))])
+      (if output-contract? (values cont func) func))))
 
-(define (get-java-mutator class-type field-name ftype)
+(define (get-java-mutator class-type field-name ftype
+                          #:output-contract? [output-contract? #f]
+                          #:apply-contract?  [apply-contract? #f])
   (let* ([type      (jtype/field-type ftype)]
          [static?   (jtype/field-static? ftype)]
          [signature (jtype-signature type)]
@@ -42,8 +53,15 @@
                     (format "set-~a~a-field" (if static? "static-" "") (jtype-tag type))
                     (_cprocedure (list __jnienv (if static? __jclass __jobject) __jfieldID ctype) 
                                  ctype))])
-    (if static? (λ (new-value) (ffi-func current-jnienv class-id field-id new-value))
-        (λ (obj new-value) (ffi-func current-jnienv obj field-id new-value)))))
+    (let-values ([(cont func)
+                  (if static?
+                      (values
+                       (->  (jtype-predicate type) (jtype-predicate type))
+                       (λ (new-value) (ffi-func current-jnienv class-id field-id new-value)))
+                      (values
+                       (-> (jtype-predicate class-type) (jtype-predicate type) (jtype-predicate type))
+                       (λ (obj new-value) (ffi-func current-jnienv obj field-id new-value))))])
+      (if output-contract? (values cont func) func))))
 
 (define (get-java-parameter class-id field-name ftype)
   (let* ([accessor (get-java-accessor class-id field-name ftype)]
