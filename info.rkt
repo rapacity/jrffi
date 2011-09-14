@@ -8,4 +8,4 @@
 (define primary-file "main.rkt")
 (define pre-install-collection "make.rkt")
 (define compile-omit-files '("tests" "prototypes" "make.rkt"))
-(define scribblings '(("scribblings/auto.scrbl")))
+(define scribblings '(("scribblings/reference.scrbl")))
