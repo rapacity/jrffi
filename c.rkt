@@ -4,7 +4,7 @@
 (require ffi/unsafe racket/runtime-path racket/function)
 
 (define-syntax (: stx)                                                     
-  (raise-syntax-error ': "can only be used in a cimports context"))
+  (raise-syntax-error #f "can only be used in a cimports context" stx))
     
 ; Helper macro for importing function from the C jrffi library
 (define-syntax (cimports stx)

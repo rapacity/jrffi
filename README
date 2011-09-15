@@ -10,6 +10,9 @@ The goal of this project is facilitate the use of java libraries
 on racket, by making it easier to write manual bindings and 
 by also providing support for automatic binding
 
+Documentation can be found in the scribblings folder you can also
+view it compiled by following this link http://rapacity.codealife.com/jrffi/
+
 Installation:
 make sure to have the JAVA_HOME and ARCH variables set,
 place in collects folder, then run "raco setup jrffi"
