@@ -1,7 +1,6 @@
 #lang racket/base
 
-(require ffi/unsafe racket/function racket/string
-         "start.rkt" "c.rkt")
+(require ffi/unsafe racket/function "start.rkt" "c.rkt")
 
 (struct jtype (signature tag predicate ctype racket->java java->racket))
 (struct jtype/object jtype (class))
@@ -129,18 +128,16 @@
 (provide _jboolean _jbyte _jchar _jshort _jint _jlong _jfloat _jdouble _jvoid
          _jobject _jstring _jlist)
 
-;(provide instance-of? (rename-out [find-class find-class]) get-method-id get-field-id)
+(provide jboolean? jbyte? jchar? jshort? jint? jlong? jfloat? jdouble? jstring?)
 
-
-(provide (all-defined-out)  current-jnienv)
-
-
-
-
-
-
-
-
-
-
-
+(provide
+ make-jlist-predicate
+ make-jobject-predicate
+ make-class-signature
+ make-vector-signature
+ jtype->ctype
+ current-java-throw-handler
+ (struct-out jtype) 
+ (struct-out jtype/object) 
+ (struct-out jtype/vector)
+ (struct-out jvector))

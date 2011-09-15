@@ -1,37 +1,21 @@
 #lang racket/base
 
-(require racket/stxparam)
-(require (for-syntax syntax/parse racket/syntax racket) racket/list)
+(require (for-syntax syntax/parse racket/syntax racket))
 (require ffi/unsafe racket/runtime-path racket/function)
 
-
-
-(define-syntax-parameter :                                                     
-  (lambda (stx) #f))
+(define-syntax (: stx)                                                     
+  (raise-syntax-error ': "can only be used in a cimports context"))
     
-; Helper macros for importing function from the C jrffi library
+; Helper macro for importing function from the C jrffi library
 (define-syntax (cimports stx)
+  (define-syntax-class row #:literals (= -> :)
+    (pattern (name:id (~optional (~seq = ffi-name:id) #:defaults ([ffi-name #'name])) : arg:expr ...)))
   (syntax-parse stx #:literals (= ->)
-    [(_) #`(begin)]
-    [(_ #:with-env) #`(begin)]
-    [(_ [name (~optional (~seq = ffi-name)) args ...] rest ...)
-     #`(begin (define name (cimport #,(if (attribute ffi-name) #'ffi-name #'name) args ...))
-              (cimports rest ...))]
-    [(_ #:with-env [name (~optional (~seq = ffi-name)) args ...] rest ...)
-     #`(begin (define name (cimport/env #,(if (attribute ffi-name) #'ffi-name #'name) args ...))
-              (cimports #:with-env rest ...))]))
-(define-syntax (cimport stx)
-  (syntax-parse stx #:literals (: ->)
-    [(_ name : args ... -> return)
-     #`(get-jrffi-obj 'name (_fun args ... -> return))]))
-; like cimport but the first argument of the imported function is __jnienv the imported function is
-; then wrapped in a lambda with the user-specified args and the first argument provided current-jnienv
-(define-syntax (cimport/env stx)
-  (syntax-parse stx #:literals (: ->)
-    [(_ name : arg-types ... -> return)
-     (with-syntax ([(args ...) (generate-temporaries #`(arg-types ...))])
-       #`(let ([f (cimport name : __jnienv arg-types ... -> return)])
-           (lambda (args ...) (f current-jnienv args ...))))]))
+    [(_ o:row ... #:with-env p:row ...)
+     (quasisyntax/loc stx
+       (begin 
+         (define o.name (get-jrffi-obj 'o.ffi-name (_fun o.arg ...))) ...
+         (define p.name (get-jrffi-obj 'p.ffi-name (_fun [__jnienv = current-jnienv] p.arg ...))) ...))]))
 
 ; if false then false else make pointer a java global ref, register it with a finalizer, and tag it
 (define (_jpointer/null tag)
@@ -52,7 +36,6 @@
   ([name      _string]
    [signature _string]
    [function  _pointer]))
-
 
 (define __jfieldID  _pointer)
 (define __jmethodID _pointer)
@@ -144,14 +127,12 @@
             (exception-clear current-jnienv))
           (error (format "Field not found ~a: ~a" name sig))))))
   
-
 (begin-for-syntax
   (define (id:array-make name)
     (list (format-id name "__j~a" name)
           (format-id name "new-~a-array" name)
           (format-id name "set-~a-array-element" name)
           (format-id name "get-~a-array-element" name))))
-
 
 (define-syntax (unpack-cside-jvector stx)
   (syntax-case stx ()
@@ -171,17 +152,6 @@
                [(type)   (values ffi-make ffi-ref ffi-set!)] ...
                [else     (error "this type cannot be used in an array")]))))]))
 
-
-
 (unpack-cside-jvector boolean byte char short int long float double)
 
-
 (provide (all-defined-out))
-
-
-
-
-
-
-
-
