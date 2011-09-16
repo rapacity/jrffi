@@ -45,8 +45,8 @@
        (for*/list ([package-stx  (in-list (syntax-e #`(package ...)))]
                    [package-path (in-value (java-module-path package-stx))]
                    [mode         (in-list (if (null? modes) '(0) modes))]
-                   [names        (syntax-local-module-required-identifiers package-path mode)]
-                   #:when (or names (raise-syntax-error #f "no corresponding require"))
+                   [names        (or (syntax-local-module-required-identifiers package-path mode)
+                                     (raise-syntax-error #f "no corresponding require" stx))]
                    [name         (in-list (cdr names))])
          (make-export name (syntax->datum name) mode #f stx))]))
   
