@@ -90,6 +90,16 @@
     [(method)      (format "~a-~a" class-name field-or-method-name)]))
 
 
+(define (require-namer type class-name field-or-method-name)
+  (case type
+    [(class)       "<type>"]
+    [(predicate)   "<predicate>"]
+    [(mutator)     (format "<mutator>~a!" field-or-method-name)]
+    [(accessor)    (format "<accessor>~a" field-or-method-name)]
+    [(constructor) "<constructor>"]
+    [(method)      (format "<method>~a" field-or-method-name)]))
+
+
 (define (construct-syntax stx token->type import? racketify? custom-namer)
   (define namer (or (and racketify? racketify-namer)
                     custom-namer
@@ -150,25 +160,12 @@
 
 ;(construct-syntax 'java.lang.String (type-mapper default-autobind-typemap) #t #t #f)
 (define (jrequire name)
-  (construct-syntax name (type-mapper default-autobind-typemap) #t #f #f))
+  (construct-syntax name (type-mapper default-autobind-typemap) #t #f require-namer))
 
-#;
-(define-syntax (jrequire stx)
-  (syntax-parse stx
-    [(_ class-name:id ...
-        (~optional (~and #:import import-kw))
-        (~optional (~or (~and #:racketify racketify-kw)
-                        (~seq #:renamer renamer-proc)))
-        (~optional (~seq #:typemap typemap-proc)))
-     (let* ([token->type (type-mapper default-autobind-typemap)]
-            [unpacker (cut construct-syntax <> token->type
-                           (attribute import-kw) 
-                           (attribute racketify-kw)
-                           (and (attribute renamer-proc) (eval-syntax #'renamer-proc))
-                           )])
-       (with-syntax ([(unpacked ...) (map unpacker (syntax-e #`(class-name ...)))])
-         #`(begin unpacked ...)))]))
+
+
+
+
 
 
 (provide (all-defined-out))
-
