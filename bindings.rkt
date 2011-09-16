@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require racket/runtime-path racket/path file/sha1 racket/pretty "auto.rkt")
+(require racket/runtime-path racket/path file/sha1 racket/pretty "auto.rkt" srfi/26/cut)
 
 (define-runtime-path bindings-path "bindings")
 
@@ -29,12 +29,12 @@
   (let* ([file   (absolute-binding-file name)]
          [output (open-output-file file #:exists exists)])
     (displayln "#lang racket/base" output)
-    (displayln "(provide (all-defined-out))" output)
+    (displayln "(require (except-in racket/contract ->))" output)
     (for ([i (in-list (list "core.rkt" "funtype.rkt" "fieldtype.rkt" "jvector.rkt"))])
       (displayln
        (string-append 
         "(require \"../" i "\")") output))
-    (pretty-write bindings output)
+    (for-each (cut pretty-write <> output) bindings)
     (flush-output output)))
 
 (provide (all-defined-out))

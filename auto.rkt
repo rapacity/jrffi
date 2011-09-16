@@ -109,6 +109,7 @@
     (string->symbol (namer type class-name field-or-method-name)))
   (define package+class-name (symbol->string stx))
   (define package+class-name-forward-slash (regexp-replace* #rx"[.]" package+class-name "/"))
+  (define package+class-symbol (string->symbol package+class-name-forward-slash))
   (define class-info (find-class-signature package+class-name))
   (define class-methods
     (partition-by method-signature-name (jclass-signature-methods class-info)))
@@ -116,47 +117,76 @@
   (define class-fields       (jclass-signature-fields class-info))
   (define class-name         (if import? (import-renamer package+class-name) package+class-name))
   (define class-identifier   (namer-stx 'class class-name #f))
-  `(begin
-     (define ,class-identifier
+  (define predicate-name (namer-stx 'predicate class-name #f))
+  `((define ,class-identifier
        (_jobject ,package+class-name-forward-slash))
-     
-     (define ,(namer-stx 'predicate class-name #f) (jtype-predicate ,class-identifier))
+     (define ,predicate-name (jtype-predicate ,class-identifier))
+     (provide ,class-identifier ,predicate-name)
      ,@(if (null? class-constructors) `()
-           `((define ,(namer-stx 'constructor class-name #f)
-               (get-java-constructor ,class-identifier
-                 (_jconstructor ,@(map (match-lambda [(constructor-signature vararg? args return)
-                                              `(,@(map token->type args)
-                                                ,@(if vararg? `(#:vararg) `()))])
-                               class-constructors))))))
+           (let* ([name (namer-stx 'constructor class-name #f)]
+                  [contract (gensym)]
+                  [name/contract (string->symbol (format "<contract>~a" name))])
+             `((define-values (,name ,contract)
+                 (get-java-constructor ,class-identifier #:output-contract? #t
+                   (_jconstructor ,@(map (match-lambda
+                                           [(constructor-signature vararg? args return)
+                                            `(,@(map token->type args)
+                                              ,@(if vararg? `(#:vararg) `()))])
+                                         class-constructors))))
+                (define ,name/contract
+                  (contract ,contract ,name '(java ,package+class-symbol) '(function a)))
+                (provide ,name/contract ,name)
+                )))
       
-     ,@(for/list ([i (in-list class-methods)])
+     ,@(append*
+        (for/list ([i (in-list class-methods)])
          (match i
            [(list-rest method-name methods)
-            `(define ,(namer-stx 'method class-name method-name)
-               (get-java-method ,class-identifier ,method-name 
-                 (_jmethod
-                  ,@(map (match-lambda [(method-signature _ _ static? _ vararg? args return)
-                                        `(,@(map token->type args)
-                                          ->
-                                          ,(token->type return)
-                                          ,@(if static? `(#:static) `())
-                                          ,@(if vararg? `(#:vararg) `()))]) methods))))]))
-     ,@(for/list ([i (in-list class-fields)])
+            (let* ([name (namer-stx 'method class-name method-name)]
+                   [contract (gensym)]
+                   [name/contract (string->symbol (format "<contract>~a" name))])
+              `((define-values (,name ,contract)
+                  (get-java-method ,class-identifier ,method-name #:output-contract? #t
+                     (_jmethod
+                      ,@(map (match-lambda
+                               [(method-signature _ _ static? _ vararg? args return)
+                                `(,@(map token->type args)
+                                  ->
+                                  ,(token->type return)
+                                  ,@(if static? `(#:static) `())
+                                  ,@(if vararg? `(#:vararg) `()))]) methods))))
+                 (define ,name/contract
+                   (contract ,contract ,name '(java ,package+class-symbol) '(function a)))
+                 (provide ,name/contract ,name)))])))
+     ,@(append*
+        (for/list ([i (in-list class-fields)])
          (match i
            [(field-signature field-name final? static? type)
-            `(define ,(namer-stx 'accessor class-name field-name)
-                  (get-java-accessor ,class-identifier ,field-name
-                                     (_jfield ,(token->type type)
-                                              ,@(if static? `(#:static) `()))))]))
-     ,@(for/fold ([output null]) ([i (in-list class-fields)])
+            (let* ([name (namer-stx 'accessor class-name field-name)]
+                   [contract (gensym)]
+                   [name/contract (string->symbol (format "<contract>~a" name))])
+            `((define-values (,name ,contract)
+                (get-java-accessor ,class-identifier ,field-name #:output-contract? #t
+                                   (_jfield ,(token->type type)
+                                            ,@(if static? `(#:static) `()))))
+               (define ,name/contract
+                 (contract ,contract ,name '(java ,package+class-symbol) '(function a)))
+               (provide ,name/contract ,name)
+               ))])))
+     ,@(append*
+        (for/fold ([output null]) ([i (in-list class-fields)])
          (match i
            [(field-signature field-name final? static? type)
             (if final? output
-                (cons `(define ,(namer-stx 'mutator class-name field-name)
-                         (get-java-mutator ,class-identifier ,field-name
-                                           (_jfield ,(token->type type)
-                                                    ,@(if static? `(#:static) `()))))
-                      output))]))))
+                (cons
+                 (let* ([name (namer-stx 'mutator class-name field-name)]
+                        [contract (gensym)]
+                        [name/contract (string->symbol (format "<contract>~a" name))])
+                   `((define-values (,name ,contract)
+                       (get-java-mutator ,class-identifier ,field-name #:output-contract? #t
+                                         (_jfield ,(token->type type)
+                                                  ,@(if static? `(#:static) `()))))))
+                      output))])))))
 
 ;(construct-syntax 'java.lang.String (type-mapper default-autobind-typemap) #t #t #f)
 (define (jrequire name)

@@ -285,7 +285,7 @@
     (let-values ([(contract procedure) (if (jtype/fun/overload? method-type) 
                                            (get-multi method-type)
                                            (get-single method-type))])
-      (if output-contract? (values contract procedure) procedure))))
+      (if output-contract? (values procedure contract) procedure))))
 
 
 (define-syntax (jinst stx)

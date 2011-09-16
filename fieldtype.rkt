@@ -33,11 +33,11 @@
     (let-values ([(cont func)
                   (if static?
                       (values
-                       (-> (jtype-predicate type))
-                       (λ () (ffi-func current-jnienv class-id field-id)))
+                       (λ () (ffi-func current-jnienv class-id field-id))
+                       (-> (jtype-predicate type)))
                       (values
-                       (-> (jtype-predicate class-type) (jtype-predicate type))
-                       (λ (obj) (ffi-func current-jnienv obj field-id))))])
+                       (λ (obj) (ffi-func current-jnienv obj field-id))
+                       (-> (jtype-predicate class-type) (jtype-predicate type))))])
       (if output-contract? (values cont func) func))))
 
 (define (get-java-mutator class-type field-name ftype
@@ -56,11 +56,11 @@
     (let-values ([(cont func)
                   (if static?
                       (values
-                       (->  (jtype-predicate type) (jtype-predicate type))
-                       (λ (new-value) (ffi-func current-jnienv class-id field-id new-value)))
+                       (λ (new-value) (ffi-func current-jnienv class-id field-id new-value))
+                       (->  (jtype-predicate type) (jtype-predicate type)))
                       (values
-                       (-> (jtype-predicate class-type) (jtype-predicate type) (jtype-predicate type))
-                       (λ (obj new-value) (ffi-func current-jnienv obj field-id new-value))))])
+                       (λ (obj new-value) (ffi-func current-jnienv obj field-id new-value))
+                       (-> (jtype-predicate class-type) (jtype-predicate type) (jtype-predicate type))))])
       (if output-contract? (values cont func) func))))
 
 (define (get-java-parameter class-id field-name ftype)

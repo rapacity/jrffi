@@ -21,12 +21,21 @@
         (generate-bindings name))
     (path->string file)))
   
-  (define (call-namer package-name object-name namer)
-    (match-let ([(regexp #rx"^<([^>]+)>(.*)$" (list _ type name)) (symbol->string object-name)])
-      (string->symbol 
-       (namer (symbol->string package-name)
-              (string->symbol type)
-              (or name (symbol->string name))))))
+  (define (nxor a b)
+    (and (or (not a) b) (or a (not b))))
+  
+  (define (call-namer package-name object-name unsafe? namer)
+    (match-let ([(regexp #rx"^(<contract>)?<([^>]+)>(.*)$" (list _ contract? type name))
+                 (symbol->string object-name)])
+      (define (make-name)
+        (string->symbol 
+         (namer (symbol->string package-name)
+                (string->symbol type)
+                (or name (symbol->string name)))))
+      ; FIXME don't make type, predicate as exceptions
+      (cond [(or (string=? type "type") (string=? type "predicate")) (make-name)]
+            [(nxor unsafe? contract?) #f]
+            [else (make-name)])))
   
   (define ((default-namer full?) package-name type object-name)
     (define class-name (if full? package-name (last (regexp-split #rx"[/]" package-name))))
@@ -55,10 +64,11 @@
           (for*/fold ([new-imports imports])
                      ([names (in-list (syntax-local-module-exports package-path))]
                       [mode  (in-value (car names))]
-                      [name  (in-list (cdr names))])
-            (let ([new-name (call-namer package-name name namer)])
-              (cons (make-import (datum->syntax stx new-name stx) name package-path mode 0 mode stx)
-                    new-imports)))
+                      [name  (in-list (cdr names))]
+                      [new-name (in-value (call-namer package-name name (attribute unsafe-kw) namer))]
+                      #:when new-name)
+            (cons (make-import (datum->syntax stx new-name stx) name package-path mode 0 mode stx)
+                  new-imports))
           (cons (make-import-source (datum->syntax stx package-path stx stx) 0) sources)))]))
   
   (define (provider stx modes)
