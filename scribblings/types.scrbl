@@ -38,14 +38,14 @@ Creates a new jtype,
 Returns @racket[(byte? v)]
 
 @defproc[(jshort? [v any/c]) boolean?]
-Returns @racket[(and (exact-integer? v) (< -32768 v 32767))]
+Returns @racket[(and (exact-integer? v) (<= -32768 v 32767))]
 
 @defproc[(jint? [v any/c]) boolean?]
-Returns @racket[(and (exact-integer? v) (< -2147483648 v 2147483647))]
+Returns @racket[(and (exact-integer? v) (<= -2147483648 v 2147483647))]
 
 @defproc[(jlong? [v any/c]) boolean?]
 Returns @racket[(and (exact-integer? v)
-                     (< -9223372036854775808 v 9223372036854775807))]
+                     (<= -9223372036854775808 v 9223372036854775807))]
 
 @defproc[(jfloat? [v any/c]) boolean?]
 Returns @racket[(single-flonum? v)]
@@ -141,7 +141,7 @@ Instantiate an overloaded function by providing it with argument types. jinst wi
 @defproc[(get-java-method [object-type jtype/object?]
                           [name string?]
                           [function-type procedure?]
-                          [#:output-contract output-contract? boolean? #f])
+                          [#:output-contract? output-contract? boolean? #f])
          procedure?]{
 Retrieves a java method
                      
@@ -150,7 +150,7 @@ Retrieves a java method
 
 @defproc[(get-java-constructor [object-type jtype/object?]
                                [function-type procedure?]
-                               [#:output-contract output-contract? boolean? #f])
+                               [#:output-contract? output-contract? boolean? #f])
          procedure?]{
 Retrieves a java constructor
 }
@@ -158,7 +158,7 @@ Retrieves a java constructor
 @defproc[(get-java-accessor [object-type jtype/object?]
                             [name string?]
                             [field-type jtype?]
-                            [#:output-contract output-contract? boolean? #f])
+                            [#:output-contract? output-contract? boolean? #f])
          procedure?]{
 Retrieves a java accessor
 }
@@ -166,7 +166,7 @@ Retrieves a java accessor
 @defproc[(get-java-mutator [object-type jtype/object?]
                            [name string?]
                            [function-type procedure?]
-                           [#:output-contract output-contract? boolean? #f])
+                           [#:output-contract? output-contract? boolean? #f])
          procedure?]{
 Retrieves a java mutator
 }
