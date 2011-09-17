@@ -20,7 +20,7 @@
 @specsubform/subs[(java name ... class-option ...)
                   ([class-option code:blank
                            (code:line #:full)
-                           (code:line #:racketify)
+                           (code:line #:rktfy)
                            (code:line #:namer namer-proc)
                            (code:line #:unsafe)])
               #:contracts ([name id?]
@@ -69,10 +69,10 @@ For each class specified the following are imported:
 
 If the @racket[#:full] option is specified the java class' package is kept in the names imported
 
-Note, the @racket[#:racketify] and the @racket[#:namer renamer-proc] options cannot be used at the 
+Note, the @racket[#:rktfy] and the @racket[#:namer renamer-proc] options cannot be used at the 
 same time
 
-If the @racket[#:racketify] option is specified:
+If the @racket[#:rktfy] option is specified:
   @itemize[
     @item{if the beginning of a method name is the word "to", the "to" is converted to "->"}
     @item{the position before the beginning of a change in character case, will become split 
