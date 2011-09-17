@@ -1,12 +1,11 @@
 #lang racket/base
 
-(require (only-in ffi/unsafe _cprocedure)
+(require (only-in ffi/unsafe _cprocedure make-ctype)
          "core.rkt" "c.rkt"
-         (prefix-in contract: racket/contract/base))
-
-(require (for-syntax syntax/parse racket/syntax racket/base) racket/string racket/contract/region)
-
-(require (for-syntax "private/list.rkt" racket/list racket/dict "private/stx.rkt"))
+         (prefix-in contract: racket/contract/base)
+         racket/string racket/contract/region
+         (for-syntax syntax/parse racket/syntax racket/base
+                     "private/list.rkt" racket/list racket/dict "private/stx.rkt"))
 
 (struct jtype/fun
   (signature
@@ -239,7 +238,10 @@
              [ffi-func 
               (get-jrffi-obj 
                (format "call-~a~a-method" (if static? "static-" "") (jtype-tag return-type))       
-               (_cprocedure (append (list __jnienv (if static? __jclass __jobject)
+               (_cprocedure (append (list __jnienv (if static? __jclass 
+                                                       (make-ctype __jobject
+                                                                   (jtype-racket->java class-type) 
+                                                                   (jtype-java->racket class-type)))
                                           __jmethodID) (map jtype->ctype arg-types))
                             (jtype->ctype return-type)))]
              [wrapper     (jtype/fun-import-procedure-wrapper method-type)]
@@ -258,8 +260,11 @@
            [arg-types   (jtype/fun-args method-type)]
            [method-id   (get-method-id class-id "<init>" signature #f)]
            [ffi-func    (get-jrffi-obj "new-object"
-                          (_cprocedure (list* __jnienv __jclass __jmethodID (map jtype->ctype arg-types))
-                                       __jobject))]
+                          (_cprocedure
+                           (list* __jnienv __jclass __jmethodID (map jtype->ctype arg-types))
+                           (make-ctype __jobject
+                                       (jtype-racket->java class-type) 
+                                       (jtype-java->racket class-type))))]
            [wrapper     (jtype/fun-import-procedure-wrapper method-type)]
            [contract    (jtype/fun-contract-wrapper method-type)])
       (values (contract objpred?) (wrapper ffi-func class-id method-id))))
