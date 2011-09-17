@@ -1,11 +1,17 @@
 #lang racket
-(require rackunit)
+(require rackunit "../jvector.rkt"  "../core.rkt" "../funtype.rkt")
 
-(require "../main.rkt"  (java java/lang/Integer))
+(define integer (_jobject "java/lang/Integer"))
+(define integer? (jtype-predicate integer))
 
+(define new-integer
+  (get-java-constructor
+   (_jobject "java/lang/Integer")
+   (_jconstructor [_jint]
+                  [_jstring])))
 
-(test-true "jtype predicate, true" (Integer? (new-Integer 33333)))
-(test-false "jtype predicate, false" (Integer? (new-string "fffff")))
+(test-true "jtype predicate, true" (integer? (new-integer 33333)))
+(test-false "jtype predicate, false" (integer? "fffff"))
 
 (define _jdouble-list  (_jlist _jdouble))
 (define _jdouble-list?  (jtype-predicate _jdouble-list))
