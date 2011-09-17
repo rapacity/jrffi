@@ -2,7 +2,7 @@
 
 (require (for-syntax "bindings.rkt" syntax/parse racket/base syntax/srcloc
                      racket/require-transform racket/provide-transform racket/match
-                     racket/list))
+                     racket/list srfi/26/cut racket/string))
 
 (begin-for-syntax
   ; attempt to generate if module isn't already generated
@@ -37,6 +37,43 @@
             [(nxor unsafe? contract?) #f]
             [else (make-name)])))
   
+
+(define (split-dots str)
+  (regexp-split #rx"[.]" str))
+
+(define (split-camel-case str)
+  (regexp-split #rx"(?<=[a-z])(?=[A-Z])" str))
+
+(define (hyphenate lst)
+  (string-join lst "-"))
+
+(define (replace-first-to str)
+  (match str
+    [(list-rest "to" rest) (list* "->" rest)]
+    [(list-rest "To" rest) (list* "->" rest)]
+    [else str]))
+
+
+(define (fix-hyphens str)
+  ((compose (cut regexp-replace* #rx"-+" <> "-")
+            (cut regexp-replace* #rx">-+" <> ">")
+            (cut regexp-replace* #rx"_+" <> "-"))
+   str))
+
+(define (racketify str)
+  (string-downcase (hyphenate (replace-first-to (append* (map split-camel-case (split-dots str)))))))
+
+(define ((racketify-namer full?) package-name type object-name)
+  (define class-name (if full? package-name (last (regexp-split #rx"[/]" package-name))))
+  (fix-hyphens  
+   (case type
+     [(type)        (racketify class-name)]
+     [(predicate)   (format "~a?" (racketify class-name))]
+     [(mutator)     (format "set-~a-~a!" (racketify class-name) (racketify object-name))]
+     [(accessor)    (format "get-~a-~a" (racketify class-name) (racketify object-name))]
+     [(constructor) (format "make-~a" (racketify class-name))]
+     [(method)      (format "~a-~a" (racketify class-name) (racketify object-name))])))
+  
   (define ((default-namer full?) package-name type object-name)
     (define class-name (if full? package-name (last (regexp-split #rx"[/]" package-name))))
     (case type
@@ -52,9 +89,10 @@
       [(_ package:id ...
           (~optional (~and #:unsafe unsafe-kw))
           (~optional (~and #:full full-kw))
-          (~optional (~and #:racketify racketify-kw))
+          (~optional (~and #:rktfy rktfy-kw))
           (~optional (~seq #:namer namer-kw)))
-       (define namer (or (and (attribute namer-kw) (eval-syntax #'namer-kw))
+       (define namer (or (and (attribute rktfy-kw) (racketify-namer (attribute full-kw)))
+                         (and (attribute namer-kw) (eval-syntax #'namer-kw))
                          (default-namer (attribute full-kw))))
        (for*/fold ([imports null] [sources null])
                   ([package-stx  (in-list (syntax-e #`(package ...)))]
