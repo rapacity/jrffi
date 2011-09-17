@@ -5,7 +5,6 @@
 (struct jtype (signature tag predicate ctype racket->java java->racket))
 (struct jtype/object jtype (class))
 (struct jtype/vector jtype/object (element))
-(struct jvector (cpointer type length))
 
 (define current-java-throw-handler (make-parameter raise))
 
@@ -46,7 +45,8 @@
 (define jfloat?     single-flonum?)
 (define jdouble?    flonum?)
 (define jstring?    string?)
-(define ((make-jobject-predicate clss) o) (instance-of? o clss))
+(define ((make-jobject-predicate clss) o) (if o (and (cpointer? o) (instance-of? o clss)) o))
+(define ((make-jobject/null-predicate clss) o) (and (cpointer? o) (instance-of? o clss)))
 (define ((make-jlist-predicate element?) o) (andmap element? o))
 
 ; --- java types ---
@@ -58,27 +58,48 @@
 (define _jlong    (jtype "J" 'long    jlong?    __jlong    #f            #f))
 (define _jfloat   (jtype "F" 'float   jfloat?   __jfloat   #f            #f))
 (define _jdouble  (jtype "D" 'double  jdouble?  __jdouble  #f            #f))
+;TODO make _jvoid error in argument position
 (define _jvoid    (jtype "V" 'void    #f        __jvoid    #f            #f))
-; hack for _jobject and _jlist so that they dual as a jtype and function
-(define _jobject
-  ((λ ()
-     (struct _jobject jtype/object ()
-       #:property prop:procedure 
-       (λ (self class-name [racket->java #f] [java->racket #f] [predicate #f])
-         (let ([class-id (find-class class-name)])
-           (struct-copy jtype/object self
-             [signature    #:parent jtype (make-class-signature class-name)]
-             [predicate    #:parent jtype (or predicate 
-                                              (procedure-rename
-                                               (make-jobject-predicate class-id)
-                                               (string->symbol (format "~a?" class-name))))]
-             [racket->java #:parent jtype racket->java]
-             [java->racket #:parent jtype java->racket]
-             [class                 class-id]))))
-     (let ([class-id (find-class "Ljava/lang/Object;")])
-       (_jobject "Ljava/lang/Object;" 'object (make-jobject-predicate class-id)
-                 __jobject #f #f class-id)))))
-(define _jstring (_jobject "java/lang/String" new-string get-string jstring?))
+
+(define-values (_jobject _jobject/null)
+  (let ()
+    (define (_jobject-builder predicate-creator)
+      (struct _jobject jtype/object ()
+        #:property prop:procedure 
+        (λ (self class-name [racket->java #f] [java->racket #f] [predicate #f])
+          (let ([class-id (find-class class-name)])
+            (struct-copy jtype/object self
+              [signature    #:parent jtype (make-class-signature class-name)]
+              [predicate    #:parent jtype (or predicate (predicate-creator class-name class-id))]
+              [racket->java #:parent jtype racket->java]
+              [java->racket #:parent jtype java->racket]
+              [class                 class-id]))))
+      _jobject)
+    (define (make-predicate class-name class-id format-string)
+      (procedure-rename
+       (make-jobject-predicate class-id)
+       (string->symbol (format format-string class-name))))
+    (define object-class-id (find-class "java/lang/Object"))
+    (values
+     ((_jobject-builder
+       (λ (class-name class-id)
+         (procedure-rename
+          (make-jobject-predicate class-id)
+          (string->symbol (format "~a?" class-name)))))
+      "Ljava/lang/Object;" 'object (make-jobject-predicate object-class-id) 
+      __jobject #f #f object-class-id)
+     ((_jobject-builder
+       (λ (class-name class-id)
+         (procedure-rename
+          (make-jobject/null-predicate class-id)
+          (string->symbol (format "~a/null?" class-name)))))
+      "Ljava/lang/Object;" 'object (make-jobject/null-predicate object-class-id) 
+      __jobject/null #f #f object-class-id))))
+
+(define _jstring (_jobject "java/lang/String"
+                           new-string
+                           (λ (o) (if o (get-string o) ""))
+                           jstring?))
 (define _jlist    
   ((λ ()
      (struct _jlist jtype/vector ()
@@ -104,7 +125,7 @@
                   array))]
              [java->racket #:parent jtype
               (λ (c)
-                (for/list ([i (in-range (get-array-length c))])
+                (for/list ([i (in-range (array-length c))])
                   (element-java->racket (array-ref c i))))]
              [class        #:parent jtype/object (find-class signature)]
              [element               element]))))
@@ -118,7 +139,7 @@
                      (set-object-array-element array i e))
                    array))
                (λ (c)
-                 (for/list ([i (in-range (get-array-length c))])
+                 (for/list ([i (in-range (array-length c))])
                    (get-object-array-element c i)))
                class-id
                _jobject)))))
@@ -126,18 +147,18 @@
 
 
 (provide _jboolean _jbyte _jchar _jshort _jint _jlong _jfloat _jdouble _jvoid
-         _jobject _jstring _jlist)
+         _jobject _jobject/null _jstring _jlist)
 
 (provide jboolean? jbyte? jchar? jshort? jint? jlong? jfloat? jdouble? jstring?)
 
 (provide
  make-jlist-predicate
  make-jobject-predicate
+ make-jobject/null-predicate
  make-class-signature
  make-vector-signature
  jtype->ctype
  current-java-throw-handler
  (struct-out jtype) 
  (struct-out jtype/object) 
- (struct-out jtype/vector)
- (struct-out jvector))
+ (struct-out jtype/vector))

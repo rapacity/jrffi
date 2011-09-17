@@ -28,6 +28,17 @@
             (cpointer-push-tag! return tag)
             return)))))
 
+(define (_jpointer tag)
+  (make-ctype _pointer
+    (λ (obj) (if obj obj (raise-type-error tag "" #f)))
+    (λ (obj)
+      (if (not obj) #f
+          (let ([return (new-global-ref obj)])
+            (delete-local-ref obj)
+            (register-finalizer return delete-global-ref)
+            (cpointer-push-tag! return tag)
+            return)))))
+
 (define-cstruct _JavaVMOption
   ([option _string]
    [extra _pointer]))
@@ -44,7 +55,8 @@
 (define __jsize     _sint32)
 (define __jclass  (_jpointer/null 'jclass))
 ; basic java-type's ctypes
-(define __jobject (_jpointer/null 'jobject))
+(define __jobject/null (_jpointer/null 'jobject))
+(define __jobject (_jpointer 'jobject))
 (define __jstring  __jobject)
 (define __jboolean (make-ctype _uint8 (λ (e) (if e 1 0)) (λ (e) (if (zero? e) #f #t))))
 (define __jbyte    _int8)
@@ -73,16 +85,16 @@
  [create-jvm                                     : (_list i _JavaVMOption) _int -> _int]
  [jvm-initialized?      = is-jvm-initialized     : -> _bool]
  [has-exception?        = exception-check        : __jnienv -> __jboolean]
- [exception-occurred                             : __jnienv -> __jobject]
+ [exception-occurred                             : __jnienv -> __jobject/null]
  [exception-clear                                : __jnienv -> _void]
  #:with-env
- [new-object-array                               : __jsize __jclass __jobject -> __jobject]
- [set-object-array-element                       : __jobject __jsize __jobject -> _void]
- [get-object-array-element                       : __jobject __jsize  -> __jobject]
- [get-array-length                               : _pointer -> __jsize]
+ [new-object-array                               : __jsize __jclass __jobject/null -> __jobject/null]
+ [set-object-array-element                       : __jobject/null __jsize __jobject/null -> _void]
+ [get-object-array-element                       : __jobject/null __jsize  -> __jobject/null]
+ [array-length          = get-array-length       : _pointer -> __jsize]
  [find-class*           = find-class             : _string -> __jclass]
- [get-object-class                               : __jobject -> __jclass] 
- [instance-of?          = is-instance-of         : __jobject __jclass -> _bool]
+ [get-object-class                               : __jobject/null -> __jclass] 
+ [instance-of?          = is-instance-of         : __jobject/null __jclass -> _bool]
  [get-method-id*        = get-method-id          : __jclass _string _string -> __jmethodID]
  [get-static-method-id* = get-static-method-id   : __jclass _string _string -> __jmethodID]
  [get-field-id*         = get-field-id           : __jclass _string _string -> __jfieldID] 
@@ -91,9 +103,9 @@
  [new-global-ref                                 : _pointer -> _pointer]
  [delete-global-ref                              : _pointer -> _void]
  [get-string-length                              : _pointer -> __jsize]
- [new-string                                     : _string  -> __jobject]
+ [new-string                                     : _string  -> __jobject/null]
  [get-string*           = get-string             : __jstring -> _pointer]
- [release-string-chars                           : __jobject _pointer -> _void]
+ [release-string-chars                           : __jobject/null _pointer -> _void]
  [register-natives                               : __jclass (_list i _JNINativeMethod) __jint -> __jint]
  )
 

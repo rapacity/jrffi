@@ -2,6 +2,8 @@
 
 (require "core.rkt" "c.rkt")
 
+(struct jvector (cpointer type length))
+
 (define jvector->cpointer jvector-cpointer)
 
 (define (make-jvector-predicate element)
@@ -18,7 +20,7 @@
            (struct-copy jtype/vector self
              [signature    #:parent jtype signature]
              [racket->java #:parent jtype jvector-cpointer]
-             [java->racket #:parent jtype (lambda (e) (jvector e element))]
+             [java->racket #:parent jtype (lambda (e) (jvector e element (array-length e)))]
              [predicate    #:parent jtype (make-jvector-predicate element)]
              [class        #:parent jtype/object (find-class signature)]
              [element               element]))))
@@ -36,11 +38,18 @@
   (jvector pointer type length))
 
 (define (jvector-ref v i)
-  (let-values ([(_2 ref _4) (tag->array-info (jtype-tag (jvector-type v)))])
-    (ref (jvector->cpointer v) i)))
+  (let*-values ([(type) (jvector-type v)]
+                [(_2 ref _4) (tag->array-info (jtype-tag type))]
+                [(java->racket) (or (jtype-java->racket type) values)])
+    (java->racket (ref (jvector->cpointer v) i))))
 
 (define (jvector-set! v i n)
-  (let-values ([(_2 _3 set) (tag->array-info (jtype-tag (jvector-type v)))])
-    (set (jvector->cpointer v) i n)))
+  (let*-values ([(type) (jvector-type v)]
+                [(_2 _3 set) (tag->array-info (jtype-tag type))]
+                [(racket->java) (or (jtype-racket->java type) values)])
+    (set (jvector->cpointer v) i (racket->java n))))
 
-(provide _jvector jvector->cpointer make-jvector jvector-set! jvector-ref)
+(provide 
+ 
+ (struct-out jvector)
+ _jvector jvector->cpointer make-jvector jvector-set! jvector-ref)
