@@ -2,8 +2,8 @@
 
 (require (only-in ffi/unsafe _cprocedure)
          "core.rkt" "c.rkt"
-         racket/contract/base)
-(require (for-syntax syntax/parse racket/base) racket/contract/region)
+         racket/contract/base
+         (for-syntax syntax/parse racket/base))
 
 
 

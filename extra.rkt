@@ -1,13 +1,7 @@
 #lang racket/base
 
-
-(require "core.rkt" "c.rkt" "funtype.rkt")
-(require "require.rkt")
- 
-
-
-
-(require (java java/lang/Boolean
+(require "core.rkt" "c.rkt" "funtype.rkt" "require.rkt"
+         (java java/lang/Boolean
                java/lang/Short
                java/lang/Byte
                java/lang/Integer

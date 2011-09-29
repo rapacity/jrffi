@@ -2,8 +2,6 @@
 
 (require racket/system srfi/13 racket/match racket/function racket/list racket/port)
 
-(require "private/list.rkt")
-
 (struct constructor-signature (vararg? args return) #:transparent)
 (struct method-signature (name abstract? static? final? vararg? args return) #:transparent)
 (struct field-signature (name static? final? type) #:transparent)

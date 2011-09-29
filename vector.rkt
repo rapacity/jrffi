@@ -1,12 +1,7 @@
 #lang racket/base
 
-(require "core.rkt" "jvector.rkt" "c.rkt" (for-syntax racket/base))
-
-
-(require (for-syntax racket/function racket/syntax))
-
-
-(require ffi/unsafe)
+(require "core.rkt" "jvector.rkt" "c.rkt"
+         (for-syntax racket/base racket/syntax))
 
 (begin-for-syntax
   (define (id:array-make name)

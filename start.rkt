@@ -1,8 +1,7 @@
 #lang racket/base
-(require racket/string racket/list)
-(require ffi/unsafe)
-(require (only-in (planet "sutil.scm" ("oesterholt" "ho-utils.plt" 1 6)) glob))
-(require "c.rkt")
+(require racket/string racket/list
+         (only-in (planet "sutil.scm" ("oesterholt" "ho-utils.plt" 1 6)) glob)
+         "c.rkt")
 
 ; for internal use only
 (define (start-jvm options)

@@ -1,7 +1,6 @@
 #lang racket/base
 
-(require "query.rkt"  racket/match srfi/26/cut racket/list "private/list.rkt"
-           racket/string)
+(require "query.rkt" racket/match racket/list "private/list.rkt")
 
 (define default-typemap
   (make-hash
