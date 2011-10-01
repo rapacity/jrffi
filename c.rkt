@@ -1,11 +1,11 @@
 #lang racket/base
 
-(require (for-syntax syntax/parse racket/syntax racket))
-(require ffi/unsafe racket/runtime-path racket/function)
+(require (for-syntax syntax/parse racket/syntax racket)
+         ffi/unsafe racket/runtime-path racket/function)
 
 (define-syntax (: stx)                                                     
   (raise-syntax-error #f "can only be used in a cimports context" stx))
-    
+
 ; Helper macro for importing function from the C jrffi library
 (define-syntax (cimports stx)
   (define-syntax-class row #:literals (= -> :)
@@ -15,7 +15,8 @@
      (quasisyntax/loc stx
        (begin 
          (define o.name (get-jrffi-obj 'o.ffi-name (_fun o.arg ...))) ...
-         (define p.name (get-jrffi-obj 'p.ffi-name (_fun [__jnienv = current-jnienv] p.arg ...))) ...))]))
+         (define p.name (get-jrffi-obj 'p.ffi-name (_fun [__jnienv = current-jnienv] p.arg ...)))
+         ...))]))
 
 ; if false then false else make pointer a java global ref, register it with a finalizer, and tag it
 (define (_jpointer/null tag)
@@ -60,7 +61,7 @@
 (define __jstring  __jobject)
 (define __jboolean (make-ctype _uint8 (λ (e) (if e 1 0)) (λ (e) (if (zero? e) #f #t))))
 (define __jbyte    _int8)
-(define __jchar    _ushort)
+(define __jchar    (make-ctype _ushort char->integer integer->char))
 (define __jshort   _sint16)
 (define __jint     _sint32)
 (define __jlong    _sint64)
@@ -139,30 +140,35 @@
             (exception-clear current-jnienv))
           (error (format "Field not found ~a: ~a" name sig))))))
   
-(begin-for-syntax
-  (define (id:array-make name)
-    (list (format-id name "__j~a" name)
-          (format-id name "new-~a-array" name)
-          (format-id name "set-~a-array-element" name)
-          (format-id name "get-~a-array-element" name))))
+(struct array-info (ref set! make))
 
 (define-syntax (unpack-cside-jvector stx)
-  (syntax-case stx ()
-    [(x type ...)
-     (with-syntax ([tag->array-info (format-id #'x "tag->array-info")]
-                   [((__element ffi-make ffi-set! ffi-ref) ...)
-                    (map id:array-make (syntax-e #`(type ...)))])
+  (define-syntax-class array
+    (pattern name:id
+             #:with info    (generate-temporary)
+             #:with element (format-id #'name "__j~a" #'name)
+             #:with make    (format-id #'name "new-~a-array" #'name)
+             #:with set!    (format-id #'name "set-~a-array-element" #'name)
+             #:with ref     (format-id #'name "get-~a-array-element" #'name)))
+  (syntax-parse stx
+    [(o a:array ...)
+     (with-syntax ([tag->array-info (format-id #'o "tag->array-info")])
        #`(begin
            (cimports
             #:with-env
-            [ffi-make : __jsize                     -> __jobject] ...
-            [ffi-set! : __jobject __jsize __element -> __jvoid] ...
-            [ffi-ref  : __jobject __jsize           -> __element] ...)
-           (define (tag->array-info tag)
-             (case tag
-               [(object) (values new-object-array get-object-array-element set-object-array-element)]
-               [(type)   (values ffi-make ffi-ref ffi-set!)] ...
-               [else     (error "this type cannot be used in an array")]))))]))
+            [a.make : __jsize                     -> __jobject] ...
+            [a.set! : __jobject __jsize a.element -> __jvoid] ...
+            [a.ref  : __jobject __jsize           -> a.element] ...)
+           (define tag->array-info
+             (let ([o.info (array-info get-object-array-element 
+                                       set-object-array-element
+                                       new-object-array)]
+                   [a.info (array-info a.ref a.set! a.make)] ...)
+             (lambda (tag)
+               (case tag
+                 [(object) o.info]
+                 [(a)      a.info] ...
+                 [else     (error 'tag->array-info "`~a' cannot be used in an array" tag)]))))))]))
 
 (unpack-cside-jvector boolean byte char short int long float double)
 
