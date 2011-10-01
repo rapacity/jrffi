@@ -26,15 +26,15 @@
 
 (define (generate-bindings name #:exists [exists 'error])
   (define bindings (jrequire (string->symbol (slash->dot name))))
-  (let* ([file   (absolute-binding-file name)]
-         [output (open-output-file file #:exists exists)])
-    (displayln "#lang racket/base" output)
-    (displayln "(require (except-in racket/contract ->))" output)
-    (for ([i (in-list (list "core.rkt" "funtype.rkt" "fieldtype.rkt" "jvector.rkt"))])
-      (displayln
-       (string-append 
-        "(require \"../" i "\")") output))
-    (for-each (cut pretty-write <> output) bindings)
-    (flush-output output)))
+  (define file   (absolute-binding-file name))
+  (define output (open-output-file file #:exists exists))
+  (displayln "#lang racket/base" output)
+  (displayln "(require (except-in racket/contract ->))" output)
+  (for ([i (in-list (list "core.rkt" "funtype.rkt" "fieldtype.rkt" "jvector.rkt"))])
+    (displayln
+     (string-append 
+      "(require \"../" i "\")") output))
+  (for-each (cut pretty-write <> output) bindings)
+  (flush-output output))
 
 (provide (all-defined-out))

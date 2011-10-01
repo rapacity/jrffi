@@ -11,22 +11,22 @@
 (define ((single-compose f1 f2) e) (f1 (f2 e)))
 
 (define (make-jtype obj racket->java java->racket)
-  (let ([composed-racket->java (single-compose (jtype-racket->java obj) racket->java)]
-        [composed-java->racket (single-compose java->racket (jtype-java->racket obj))])
-    ; due to limitation in racket's struct-copy
-    (cond
-      [(jtype/vector? obj)
-       (struct-copy jtype/vector obj
-         [racket->java #:parent jtype composed-racket->java]
-         [java->racket #:parent jtype composed-java->racket])]
-      [(jtype/object? obj)
-       (struct-copy jtype/object obj
-         [racket->java #:parent jtype composed-racket->java]
-         [java->racket #:parent jtype composed-java->racket])]
-      [else
-       (struct-copy jtype obj
-         [racket->java                composed-racket->java]
-         [java->racket                composed-java->racket])])))
+  (define composed-racket->java (single-compose (jtype-racket->java obj) racket->java))
+  (define composed-java->racket (single-compose java->racket (jtype-java->racket obj)))
+  ; due to limitation in racket's struct-copy
+  (cond
+    [(jtype/vector? obj)
+     (struct-copy jtype/vector obj
+       [racket->java #:parent jtype composed-racket->java]
+       [java->racket #:parent jtype composed-java->racket])]
+    [(jtype/object? obj)
+     (struct-copy jtype/object obj
+       [racket->java #:parent jtype composed-racket->java]
+       [java->racket #:parent jtype composed-java->racket])]
+    [else
+     (struct-copy jtype obj
+       [racket->java                composed-racket->java]
+       [java->racket                composed-java->racket])]))
 
 (define (jtype->ctype obj)
   (make-ctype (jtype-ctype obj) (jtype-racket->java obj) (jtype-java->racket obj)))
@@ -147,8 +147,6 @@
                  (get-object-array-element c i)))
              class-id
              _jobject))))
-
-
 
 (provide _jboolean _jbyte _jchar _jshort _jint _jlong _jfloat _jdouble _jvoid
          _jobject _jobject/null _jstring _jlist)

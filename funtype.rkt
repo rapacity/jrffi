@@ -39,9 +39,9 @@
 
 
 (define (make-fun-signature args return)
-  (let ([args-signature (string-append* (map jtype-signature args))]
-        [return-signature (jtype-signature return)])
-    (string-append "(" args-signature ")" return-signature)))
+  (define args-signature (string-append* (map jtype-signature args)))
+  (define return-signature (jtype-signature return))
+  (string-append "(" args-signature ")" return-signature))
 
 (define make-method-signature make-fun-signature)
 
@@ -65,7 +65,8 @@
       (~optional (~and #:vararg vararg-kw)))
      #:with (arg+novar-id ...) (generate-temporaries #`(arg-type ...))
      #:with vararg-id          (if (or (attribute vararg-kw) (attribute vararg-type))
-                                   (generate-temporary) #`())
+                                   (generate-temporary)
+                                   #`())
      #:with (vararg-id* ...)   (if (attribute vararg-type) #`(vararg-id) #`())
      #:with (arg ...)     #`(arg-type ... #,@(if (attribute vararg-type) #`((_jlist vararg-type)) #`()))
      #:with return          (if (attribute return-type) #`return-type #`_jvoid)
@@ -125,7 +126,8 @@
       (~optional (~seq vararg-type:expr (~literal ...)))
       (~optional (~and #:vararg vararg-kw)))
      #:with (arg+novar-id ...) (generate-temporaries #`(arg-type ...))
-     #:with vararg-id          (if (or (attribute vararg-kw) (attribute vararg-type))
+     #:with vararg-id          (if (or (attribute vararg-kw)
+                                       (attribute vararg-type))
                                    (generate-temporary) #`())
      #:with (vararg-id* ...)   (if (attribute vararg-type) #`(vararg-id) #`())
      #:with (arg ...)     #`(arg-type ... #,@(if (attribute vararg-type) #`((_jlist vararg-type)) #`()))
@@ -136,8 +138,9 @@
                      (length (syntax-e #`(arg ...))))
      #:with (pred?-id ...)  (generate-temporaries #`(arg ...))
      #:with (arg-id ...)  #`(arg+novar-id ... vararg-id* ...)
-     #:with (binding ...) #`([arg-id arg] ...  [pred?-id (jtype-predicate arg-id)] ...
-                                          [args (list arg-id ...)])
+     #:with (binding ...) #`([arg-id arg] ... 
+                             [pred?-id (jtype-predicate arg-id)] ...
+                             [args (list arg-id ...)])
      #:with pred     #`(λ (obj)
                          (λ (arg+novar-id ... . vararg-id)
                            (and (pred?-id arg-id) ... )))
@@ -183,114 +186,116 @@
                                    #'pred)))
   (syntax-parse stx
     [(_ f:imaginary-fun ...)
-     (let*-values ([(funcs) (syntax->datum #`(f.funrow ...))]
-                   [(max-argc) (apply max 0 (map funrow-arity funcs))]
-                   [(min-argc) (apply min (map funrow-arity funcs))]
-                   [(vararg fixed) (partition funrow-vararg? funcs)])
-       ; partitions the fixed arg functions into buckets depending on parity
-       (define (partition-by-parity lst)
-         (partition-by funrow-arity lst))
-       ; appends the vararg functions to the end of the lists in the bucket whenever the
-       ; vararg function has a parity that is at least the bucket key
-       ; +inf.0 for last vararg case
-       (define (bucket-push buckets key value)
-         (dict-update buckets key (λ (f) (append f (list value))) null))
-       (define (append-vararg buckets lst)
-         (for/fold ([buckets buckets]) ([v (in-list lst)])
-           (for/fold ([buckets (bucket-push buckets +inf.0 v)])
-                     ([i (in-range (funrow-arity v) (add1 max-argc))])
-             (bucket-push buckets i v))))
-       (define completed-buckets (sort (append-vararg (partition-by-parity fixed) vararg) < #:key car))
-        (quasisyntax/loc stx
-          (lambda (f.name ... f.pred ...)
-            (case-lambda
-            #,@(for/list ([(n funcs) (in-dict (dict-remove completed-buckets +inf.0))])
-                 (with-syntax ([(arg ...) (generate-n-temporaries n)])
-                   #`[(_ arg ...)
-                      (cond
-                        #,@(for/list ([func (in-list funcs)])
-                             (with-syntax ([pred? (funrow-pred func)]
-                                           [name  (funrow-name func)])
-                               #`[(pred? arg ...) (name arg ...)]))
-                        [else (error "signature not found")])]))
-            #,@(if (null? vararg) #`()
-                   (with-syntax ([(arg ...) (generate-n-temporaries max-argc)])
-                     #`([(_ arg ... . rest)
-                         (cond
-                           #,@(for/list ([func (in-list (dict-ref completed-buckets +inf.0))])
-                                (with-syntax ([pred? (funrow-pred func)]
-                                              [name  (funrow-name func)])
-                                  #`[(apply pred? arg ... rest) (apply name arg ... rest)]))
-                           [else (error "signature not found")])])))
-            [else (error "signature not found")]))))]))
+     (define funcs (syntax->datum #`(f.funrow ...)))
+     (define max-argc (apply max 0 (map funrow-arity funcs)))
+     (define min-argc (apply min (map funrow-arity funcs)))
+     (define-values (vararg fixed) (partition funrow-vararg? funcs))
+     ; partitions the fixed arg functions into buckets depending on parity
+     (define (partition-by-parity lst)
+       (partition-by funrow-arity lst))
+     ; appends the vararg functions to the end of the lists in the bucket whenever the
+     ; vararg function has a parity that is at least the bucket key
+     ; +inf.0 for last vararg case
+     (define (bucket-push buckets key value)
+       (dict-update buckets key (λ (f) (append f (list value))) null))
+     (define (append-vararg buckets lst)
+       (for/fold ([buckets buckets]) ([v (in-list lst)])
+         (for/fold ([buckets (bucket-push buckets +inf.0 v)])
+           ([i (in-range (funrow-arity v) (add1 max-argc))])
+           (bucket-push buckets i v))))
+     (define completed-buckets (sort (append-vararg (partition-by-parity fixed) vararg) < #:key car))
+     (quasisyntax/loc stx
+       (lambda (f.name ... f.pred ...)
+         (case-lambda
+           #,@(for/list ([(n funcs) (in-dict (dict-remove completed-buckets +inf.0))])
+                (with-syntax ([(arg ...) (generate-n-temporaries n)])
+                  #`[(_ arg ...)
+                     (cond
+                       #,@(for/list ([func (in-list funcs)])
+                            (with-syntax ([pred? (funrow-pred func)]
+                                          [name  (funrow-name func)])
+                              #`[(pred? arg ...) (name arg ...)]))
+                       [else (error "signature not found")])]))
+           #,@(if (null? vararg) #`()
+                  (with-syntax ([(arg ...) (generate-n-temporaries max-argc)])
+                    #`([(_ arg ... . rest)
+                        (cond
+                          #,@(for/list ([func (in-list (dict-ref completed-buckets +inf.0))])
+                               (with-syntax ([pred? (funrow-pred func)]
+                                             [name  (funrow-name func)])
+                                 #`[(apply pred? arg ... rest) (apply name arg ... rest)]))
+                          [else (error "signature not found")])])))
+           [else (error "signature not found")])))]))
 
 (define (get-java-method class-type method-name method-type
                          #:output-contract? [output-contract? #f]
                          #:apply-contract?  [apply-contract? #f])
-  (let ([objpred? (jtype-predicate class-type)]
-        [class-id (jtype/object-class class-type)])
-    (define (get-single method-type)
-      (let* ([signature   (jtype/fun-signature method-type)]
-             [arg-types   (jtype/fun-args method-type)]
-             [return-type (jtype/method-return method-type)]
-             [static?     (jtype/method-static? method-type)]
-             [method-id (get-method-id class-id method-name signature static?)]
-             [ffi-func 
-              (get-jrffi-obj 
-               (format "call-~a~a-method" (if static? "static-" "") (jtype-tag return-type))       
-               (_cprocedure (append (list __jnienv (if static? __jclass 
-                                                       (make-ctype __jobject
-                                                                   (jtype-racket->java class-type) 
-                                                                   (jtype-java->racket class-type)))
-                                          __jmethodID) (map jtype->ctype arg-types))
-                            (jtype->ctype return-type)))]
-             [wrapper     (jtype/fun-import-procedure-wrapper method-type)]
-             [contract    (jtype/fun-contract-wrapper method-type)])
-        (values (contract objpred?) (wrapper ffi-func class-id method-id))))
-    (get-fun get-single class-type method-type output-contract? apply-contract?)))
+  (define objpred? (jtype-predicate class-type))
+  (define class-id (jtype/object-class class-type))
+  (define (get-single method-type)
+    (define signature   (jtype/fun-signature method-type))
+    (define arg-types   (jtype/fun-args method-type))
+    (define return-type (jtype/method-return method-type))
+    (define static?     (jtype/method-static? method-type))
+    (define method-id   (get-method-id class-id method-name signature static?))
+    (define ffi-func 
+      (get-jrffi-obj 
+       (format "call-~a~a-method" (if static? "static-" "") (jtype-tag return-type))       
+       (_cprocedure (append (list __jnienv (if static? __jclass 
+                                               (make-ctype __jobject
+                                                           (jtype-racket->java class-type) 
+                                                           (jtype-java->racket class-type)))
+                                  __jmethodID) (map jtype->ctype arg-types))
+                    (jtype->ctype return-type))))
+    (define wrapper     (jtype/fun-import-procedure-wrapper method-type))
+    (define contract    (jtype/fun-contract-wrapper method-type))
+    (values (contract objpred?) (wrapper ffi-func class-id method-id)))
+  (get-fun get-single class-type method-type output-contract? apply-contract?))
 
 
 (define (get-java-constructor class-type method-type 
                               #:output-contract? [output-contract? #f]
                               #:apply-contract?  [apply-contract? #f])
-    (let ([objpred? (jtype-predicate class-type)]
-          [class-id (jtype/object-class class-type)])
+  (define objpred? (jtype-predicate class-type))
+  (define class-id (jtype/object-class class-type))
   (define (get-single method-type)
-    (let* ([signature   (jtype/fun-signature method-type)]
-           [arg-types   (jtype/fun-args method-type)]
-           [method-id   (get-method-id class-id "<init>" signature #f)]
-           [ffi-func    (get-jrffi-obj "new-object"
-                          (_cprocedure
-                           (list* __jnienv __jclass __jmethodID (map jtype->ctype arg-types))
-                           (make-ctype __jobject
-                                       (jtype-racket->java class-type) 
-                                       (jtype-java->racket class-type))))]
-           [wrapper     (jtype/fun-import-procedure-wrapper method-type)]
-           [contract    (jtype/fun-contract-wrapper method-type)])
-      (values (contract objpred?) (wrapper ffi-func class-id method-id))))
-  (get-fun get-single class-type method-type output-contract? apply-contract?)))
+    (define signature   (jtype/fun-signature method-type))
+    (define arg-types   (jtype/fun-args method-type))
+    (define method-id   (get-method-id class-id "<init>" signature #f))
+    (define ffi-func 
+      (get-jrffi-obj "new-object"
+                     (_cprocedure
+                      (list* __jnienv __jclass __jmethodID (map jtype->ctype arg-types))
+                      (make-ctype __jobject
+                                  (jtype-racket->java class-type) 
+                                  (jtype-java->racket class-type)))))
+    (define wrapper     (jtype/fun-import-procedure-wrapper method-type))
+    (define contract    (jtype/fun-contract-wrapper method-type))
+    (values (contract objpred?) (wrapper ffi-func class-id method-id)))
+  (get-fun get-single class-type method-type output-contract? apply-contract?))
   
 
 (define (get-fun get-single class-type method-type output-contract? apply-contract?)
-  (let ([objpred? (jtype-predicate class-type)])
-    (define (get-multi method-type)
-      (let* ([procedure-wrapper  (jtype/fun/overload-import-procedure-wrapper method-type)]
-             [predicate-wrappers (jtype/fun/overload-predicate-wrappers method-type)]
-             [predicates         (map (λ (o) (o objpred?)) predicate-wrappers)]
-             [method-types       (jtype/fun/overload-methods method-type)]
-             [methods            (for/list ([m (in-list method-types)])
-                                   (let*-values ([(args) (jtype/fun-args m)]
-                                                 [(signature) (make-jinst-signature args)]
-                                                 [(contract procedure) (get-single m)])
-                                     (jfun signature procedure contract)))])
-        (struct jfun/overload jfun/overload ()
-          #:property prop:procedure
-          (apply procedure-wrapper (append (map jfun-procedure methods) predicates)))
-        (values contract:any/c (jfun/overload methods))))
-    (let-values ([(contract procedure) (if (jtype/fun/overload? method-type) 
-                                           (get-multi method-type)
-                                           (get-single method-type))])
-      (if output-contract? (values procedure contract) procedure))))
+  (define objpred? (jtype-predicate class-type))
+  (define (get-multi method-type)
+    (define procedure-wrapper  (jtype/fun/overload-import-procedure-wrapper method-type))
+    (define predicate-wrappers (jtype/fun/overload-predicate-wrappers method-type))
+    (define predicates         (map (λ (o) (o objpred?)) predicate-wrappers))
+    (define method-types       (jtype/fun/overload-methods method-type))
+    (define methods            (for/list ([m (in-list method-types)])
+                                 (define args (jtype/fun-args m))
+                                 (define signature (make-jinst-signature args))
+                                 (define-values (contract procedure) (get-single m))
+                                 (jfun signature procedure contract)))
+    (struct jfun/overload jfun/overload ()
+      #:property prop:procedure
+      (apply procedure-wrapper (append (map jfun-procedure methods) predicates)))
+    (values contract:any/c (jfun/overload methods)))
+  (define-values (contract procedure)
+    (if (jtype/fun/overload? method-type) 
+        (get-multi method-type)
+        (get-single method-type)))
+  (if output-contract? (values procedure contract) procedure))
 
 
 (define-syntax (jinst stx)
