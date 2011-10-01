@@ -13,30 +13,18 @@
    import-procedure-wrapper
    contract-wrapper
    args))
-
-(struct jtype/method jtype/fun (return static?)
-  #:transparent)
-
-(struct jtype/constructor jtype/fun ()
-  #:transparent)
-
+(struct jtype/method jtype/fun (return static?))
+(struct jtype/constructor jtype/fun ())
 (struct jtype/fun/overload
   (methods 
    predicate-wrappers
    export-procedure-wrapper
    import-procedure-wrapper
-   contract-wrapper)
-  #:transparent)
-
-(struct jtype/method/overload jtype/fun/overload ()
-  #:transparent)
-
-(struct jtype/constructor/overload jtype/fun/overload ()
-  #:transparent)
-
-(struct jfun (signature procedure contract) #:transparent)
-(struct jfun/overload (methods) #:transparent)
-
+   contract-wrapper))
+(struct jtype/method/overload jtype/fun/overload ())
+(struct jtype/constructor/overload jtype/fun/overload ())
+(struct jfun (signature procedure contract))
+(struct jfun/overload (methods))
 
 (define (make-fun-signature args return)
   (define args-signature (string-append* (map jtype-signature args)))
@@ -53,7 +41,6 @@
 
 (define-syntax (-> stx)
   (raise-syntax-error #f "can only be used within a java method type definition"))
-
   
 (define-syntax (_jmethod stx)
   (define-syntax-class method-type-stx
@@ -68,7 +55,7 @@
                                    (generate-temporary)
                                    #`())
      #:with (vararg-id* ...)   (if (attribute vararg-type) #`(vararg-id) #`())
-     #:with (arg ...)     #`(arg-type ... #,@(if (attribute vararg-type) #`((_jlist vararg-type)) #`()))
+          #:with (arg ...)     #`(arg-type ... #,@(if (attribute vararg-type) #`((_jlist vararg-type)) #`()))
      #:with return          (if (attribute return-type) #`return-type #`_jvoid)
      ;-------
      #:with args (generate-temporary)
@@ -116,8 +103,6 @@
           #f #;export-procedure-wrapper
           (expand-overload-import (overload.vararg? overload.argc) ...)
           contract:any/c)))]))
-
-
 
 (define-syntax (_jconstructor stx)
   (define-syntax-class method-type-stx
@@ -273,7 +258,6 @@
     (define contract    (jtype/fun-contract-wrapper method-type))
     (values (contract objpred?) (wrapper ffi-func class-id method-id)))
   (get-fun get-single class-type method-type output-contract? apply-contract?))
-  
 
 (define (get-fun get-single class-type method-type output-contract? apply-contract?)
   (define objpred? (jtype-predicate class-type))
@@ -298,26 +282,43 @@
   (if output-contract? (values procedure contract) procedure))
 
 
+(define (jinst* obj #:unsafe? unsafe? #:stx stx . types)
+  (define signature  (make-jinst-signature types))
+  (define rows       (jfun/overload-methods obj))
+  (define maybe-row  (findf (λ (o) (string=? signature (jfun-signature o))) rows))
+  (cond
+    [maybe-row
+     (define procedure          (jfun-procedure maybe-row))
+     (define procedure-contract (jfun-contract maybe-row))
+     (if unsafe?
+         procedure
+         (contract:contract procedure-contract procedure stx '(function a)))]
+    [else (error 'jinst "overloaded method signature not found")]))
+
 (define-syntax (jinst stx)
   (syntax-parse stx
-    [(_ obj-stx:expr arg:expr ... (~optional (~and #:unsafe unsafe-kw)))
+    [(_ (~and arg:expr (~not (~literal ...))) ...+ 
+        (~optional (~seq vararg:expr (~literal ...)))
+        (~optional (~and #:unsafe unsafe-kw)))
      (quasisyntax/loc stx
-       (let ([obj obj-stx])
-         (unless (jfun/overload? obj)
-           (error 'obj-stx "is not an overloaded function"))
-         (let* ([signature  (make-jinst-signature (list arg ...))]
-                [check?     #,(if (attribute unsafe-kw) #`#f #`#t)]
-                [rows       (jfun/overload-methods obj)]
-                [maybe-row  (findf (λ (o) (string=? signature (jfun-signature o))) rows)])
-           (if maybe-row
-               (let ([procedure          (jfun-procedure maybe-row)]
-                     [procedure-contract (jfun-contract maybe-row)])
-                 (if check? (contract:contract procedure-contract procedure 
-                                      (current-contract-region) '(function a))
-                     procedure))
-               (error 'jinst "overloaded method signature not found")))))]))
+       (jinst* arg ... #,@(if (attribute vararg) #'((_jlist vararg)) #'())
+               #:stx (current-contract-region)
+               #:unsafe? #,(attribute unsafe-kw)))]))
 
-(provide get-java-method get-java-constructor jinst ... -> _jmethod _jconstructor)
+(provide jinst ... -> _jmethod _jconstructor)
 
+(contract:provide/contract
+ [get-java-method 
+  (contract:->*
+   (jtype/object? string? (contract:or/c jtype/method? jtype/method/overload?))
+   (#:output-contract? boolean?
+    #:apply-contract? boolean?)
+   contract:any)]
+ [get-java-constructor
+  (contract:->*
+   (jtype/object? (contract:or/c jtype/constructor? jtype/constructor/overload?))
+   (#:output-contract? boolean?
+    #:apply-contract? boolean?)
+   contract:any)])
 
 
