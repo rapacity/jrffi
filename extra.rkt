@@ -25,9 +25,6 @@
     [(Character? obj) (Character-charValue obj)]
     [else (error "Not a primitive jobject")]))
 
-
-
-
 (define racket->primitive-jobject
   (let ([new-boolean   (jinst new-Boolean _jboolean)]
         [new-byte      (jinst new-Byte _jbyte)]
@@ -48,11 +45,7 @@
             [(jchar? obj)    (new-Character obj)]
             [else (error "Not a primitive jobject")]))))
 
-
 (define _jobject-primitive
   (_jobject "java/lang/Object" racket->primitive-jobject primitive-jobject->racket))
 
-
-(provide (all-defined-out))
-
-
+(provide primitive-jobject->racket racket->primitive-jobject)

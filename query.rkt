@@ -5,13 +5,7 @@
 (struct constructor-signature (vararg? args return) #:transparent)
 (struct method-signature (name abstract? static? final? vararg? args return) #:transparent)
 (struct field-signature (name static? final? type) #:transparent)
-
-
 (struct jclass-signature (name fields methods constructors) #:transparent)
-
-;#;(match ""
-;  [(list (regexp #rx"public( static)?( final)?(?:[^ ]+) ([^(]+)\\((?![.]{3})*([.]{3})?[^)]*\\)"))])
-;^ *(public|protected)( abstract)?( static)?( final)?
 
 (define (find-class-signature clss)
   (define (parse-signature name sig properties vararg?)
@@ -87,7 +81,6 @@
                    `(object ,class-name))]
           [else (error 'parse-type (format "Unrecognized Type: ~a" msg))]))))
 
-
 (define (parse-types port)
   (let loop ()
     (let ([type (parse-type port)])
@@ -95,5 +88,3 @@
           null))))
 
 (provide (all-defined-out))
-
-
