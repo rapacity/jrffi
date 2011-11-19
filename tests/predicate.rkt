@@ -19,3 +19,8 @@
 (test-true "jlist predicate, true" (_jdouble-list? (map real->double-flonum (list 1 2 4))))
 
 
+
+(define _jboolean-list  (_jlist _jboolean))
+(define _jboolean-list?  (jtype-predicate _jboolean-list))
+
+(test-false "jlist predicate, false" (_jboolean-list? (list 1 2 3 4)))

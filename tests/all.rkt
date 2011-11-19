@@ -4,4 +4,3 @@
 
 (test/gui auto-tests manual-tests vector-tests)
 
-(read-line)

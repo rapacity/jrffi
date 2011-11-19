@@ -17,6 +17,21 @@
   (test-case "non-overloaded method type"
     (_jmethod [(_jvector _jlong)    -> _jstring #:static]))
   
+  
+  (test-case "jinst overloaded method vararg"
+    (define toString
+      (get-java-method
+        (_jobject "java/util/Arrays") "toString"
+        (_jmethod [_jboolean ...    -> _jstring #:static]
+                  [_jint ...     -> _jstring #:static])))
+    
+    (define toString-boolean-jinst (jinst toString _jboolean ...))
+    
+    ;(check-exn exn:fail:contract? (λ () (toString-boolean-jinst #f #t "sfasdfsadf")) "contract checking, break")
+    (check-equal? (toString-boolean-jinst #f #t) "[false, true]")
+    )
+  
+  
   (test-case "instantiate method overload"
     (define toString
       (get-java-method
