@@ -3,6 +3,7 @@ Warning!
 The project is currently experimental, its api is inconsistent,
 and subject to drastic change, lacks complete documentation,
 sufficient unit testing, and is filled with disorganized messy code. 
+Only tested on openjdk 1.6.0_22
 
 -------------------------------------------------------------------
 

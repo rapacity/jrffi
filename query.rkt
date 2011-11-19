@@ -7,7 +7,14 @@
 (struct field-signature (name static? final? type) #:transparent)
 (struct jclass-signature (name fields methods constructors) #:transparent)
 
+
+(define (quote-sigil str)
+  (regexp-replace* #rx"[$]" str "\\\\$"))
+
 (define (find-class-signature clss)
+  (car (parse-javap-output (javap clss))))
+
+(define (parse-field/method class-name a b)
   (define (parse-signature name sig properties vararg?)
     (match (list sig properties)
       [(list (regexp #rx"^\\(([^)]*)\\)(.+)$" (list _ args return))
@@ -16,7 +23,7 @@
               [return-type (parse-type (open-input-string return))]
               [arg-types (if (not vararg?) arg-types*
                              (match arg-types* [(list head ... tail) `(,@head (vararg ,@(cdr tail)))]))])
-         (if (string=? clss name)
+         (if (string=? class-name name)
              (constructor-signature vararg? arg-types return-type)
              (method-signature name abstract? static? final? vararg? arg-types return-type)))]
       [(list type (list public/protected abstract? static? final?))
@@ -30,31 +37,49 @@
                (list _ public/protected abstract? static? final?))
        (list public/protected (and abstract? #t) (and static? #t) (and final? #t))]))
   (define extract-signature (match-lambda [(regexp #rx" *Signature: (.+) *"(list _ signature)) signature]))
-  (define (extract-names/signatures port)
-    (let ([lines (filter (negate (curry string=? "")) (drop-right (drop (port->lines port) 2) 1))])
-      (let loop ([lines lines] [output null])
-        (if (null? lines) output
-            (loop (cddr lines) 
-                  (cons (parse-signature 
-                         (extract-name (first lines))
-                         (extract-signature (second lines))
-                         (extract-properties (first lines))
-                         (vararg? (first lines)))
-                        output))))))
-  (define (quote-sigil str)
-    (regexp-replace* #rx"[$]" str "\\\\$"))
-  (let* ([javap (process (string-append "javap -s -protected " (quote-sigil clss)))]
-         [input-port (first javap)]
-         [error-port (fourth javap)])
-    (let ([error-string (read-line error-port)])
-      (unless (eof-object? error-string)
-        (error error-string)))
-    (let ([signatures (extract-names/signatures input-port)])
-      (jclass-signature
-       (string-trim clss)
-       (filter field-signature? signatures)
-       (filter method-signature? signatures)
-       (filter constructor-signature? signatures)))))
+  (parse-signature 
+   (extract-name a)
+   (extract-signature b)
+   (extract-properties a)
+   (vararg? a))
+  )
+
+(define (parse-javap-output lines)
+  (let loop ([current-class-name #f] [lines lines] [signatures null] [classes null])
+    (match lines
+      [(list-rest (or (regexp #rx"^Compiled from") "") rest)
+       (loop current-class-name rest signatures classes)]
+      [(list-rest (regexp #rx"^(?:public|private|protected) (?:final )?(?:class|interface) ([^ {]+).+{$"
+                          (list _ class-name))
+                  rest)
+       (loop class-name rest signatures classes)]
+      [(list-rest (regexp #rx"^}") rest)
+       (loop
+        #f
+        rest
+        null
+        (cons
+         (jclass-signature
+          current-class-name
+          (filter field-signature? signatures)
+          (filter method-signature? signatures)
+          (filter constructor-signature? signatures))
+         classes))]
+      [(list-rest a b rest)
+       (loop
+        current-class-name
+        rest
+        (cons (parse-field/method current-class-name a b) signatures)
+        classes)]
+      [else classes])))
+
+(define (javap . classes)
+  (match (process (string-append "javap -s -protected " (string-join (map quote-sigil classes) " ")))
+    [(list input-port output-port _ error-port _)
+     (let ([error-string (read-line error-port)])
+       (unless (eof-object? error-string)
+         (error error-string)))
+     (port->lines input-port)]))
 
 (define (read-until port pred?)
   (define (aux)
